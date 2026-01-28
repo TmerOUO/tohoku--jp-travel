@@ -74,7 +74,50 @@
       default: { color: "border-gray-300", text: "text-gray-400", bg: "bg-gray-50", label: "ACTIVITY", icon: "circle" }
     };
 
-    // --- 這裡就是您可以靈活調整的地方 (INITIAL_DATA) ---
+    // --- 實用日語資料 ---
+    const JAPANESE_PHRASES = [
+      {
+        category: "迷路 & 交通 (Lost)",
+        icon: "map-pin",
+        phrases: [
+          { jp: "道に迷いました。", romaji: "Michi ni mayoimashita", zh: "我迷路了" },
+          { jp: "駅はどこですか？", romaji: "Eki wa doko desu ka?", zh: "請問網站在哪裡？" },
+          { jp: "地図を書いてくれませんか？", romaji: "Chizu o kaite kuremasenka?", zh: "可以幫我畫地圖嗎？" },
+          { jp: "ここに行きたいです。", romaji: "Koko ni ikitai desu", zh: "我想去這裡 (指地圖)" }
+        ]
+      },
+      {
+        category: "預約 & 餐廳 (Dining)",
+        icon: "calendar-check",
+        phrases: [
+          { jp: "予約しています。", romaji: "Yoyaku shiteimasu", zh: "我有預約" },
+          { jp: "4人です。", romaji: "Yo-nin desu", zh: "我們有 4 個人" },
+          { jp: "お会計をお願いします。", romaji: "O-kaikei o onegaishimasu", zh: "麻煩結帳" },
+          { jp: "写真はいいですか？", romaji: "Shashin wa ii desu ka?", zh: "可以拍照嗎？" }
+        ]
+      },
+      {
+        category: "購物 & 塑膠袋 (Shop)",
+        icon: "shopping-bag",
+        phrases: [
+          { jp: "袋をください。", romaji: "Fukuro o kudasai", zh: "請給我塑膠袋" },
+          { jp: "袋は要りません。", romaji: "Fukuro wa irimasen", zh: "不用袋子" },
+          { jp: "これをください。", romaji: "Kore o kudasai", zh: "我要買這個" },
+          { jp: "免税になりますか？", romaji: "Menzei ni narimasu ka?", zh: "可以免稅嗎？" }
+        ]
+      },
+      {
+        category: "急病 & 求救 (SOS)",
+        icon: "ambulance",
+        phrases: [
+          { jp: "具合が悪いです。", romaji: "Guai ga warui desu", zh: "我不舒服" },
+          { jp: "救急車を呼んでください！", romaji: "Kyuukyusha o yonde kudasai!", zh: "請叫救護車！" },
+          { jp: "病院はどこですか？", romaji: "Byouin wa doko desu ka?", zh: "醫院在哪裡？" },
+          { jp: "薬をください。", romaji: "Kusuri o kudasai", zh: "請給我藥" }
+        ]
+      }
+    ];
+
     const INITIAL_DATA = {
       schedule: [
         { date: "01/31 (六)", weather: { city: "東京", temp: "-", icon: "cloud-sun" }, items: [ { id: "s0", type: "transport", time: "06:55", title: "起飛：高雄 -> 成田", location: "小港機場", desc: "BR/JL 航班", tags: ["集合"], guide: { tips: ["VJW截圖備用"] } }, { id: "s01", type: "stay", time: "19:00", title: "APA Hotel Ueno", location: "APA Hotel Ueno Ekimae", desc: "全員東京集合", tags: ["住宿"] } ] },
@@ -83,12 +126,10 @@
           weather: { city: "東京", temp: "-", icon: "sun" }, 
           items: [ 
             { id: "s1", type: "food", time: "12:00", title: "燒肉 29 Terrace", location: "Yakiniku 29 Terrace", desc: "必吃高評價燒肉", tags: ["已訂位"], guide: { mustEat: ["厚切牛舌"], reservation: { code: "書瑜" } } }, 
-            // 👇 修正後的 Memento Mori 資料
             { 
               id: "s1b", type: "spot", time: "20:30", title: "Memento Mori", location: "Toranomon Hills", 
-              desc: "以世界各地的「可可豆」為靈感的調酒", tags: ["Cacao調酒"], 
+              desc: "以世界各地的「可可豆」爲靈感的酒吧", tags: ["Cacao調酒"], 
               guide: { 
-                // 使用 | 來控制換行，您可以隨時在這裡修改
                 story: "🍫 特色：像實驗室一樣萃取可可的風味|🍸 必點：Cacao Pulp Fizz (可可果肉調酒)|📍 位置：虎之門 Hills 3樓", 
                 mustEat: ["Cacao Pulp Fizz", "Amazon Cacao"] 
               } 
@@ -148,6 +189,9 @@
       const [uploading, setUploading] = useState(false);
       const [activeTab, setActiveTab] = useState('schedule');
       const [isEditMode, setIsEditMode] = useState(false);
+      
+      // 日語卡片展開狀態
+      const [openPhraseCategory, setOpenPhraseCategory] = useState(null);
 
       useEffect(() => {
         const initData = async () => {
@@ -184,7 +228,19 @@
       const handleForceReset = async () => { if(!confirm("⚠️ 警告：這會將資料庫重置為程式碼中的預設值。確定嗎？")) return; setLoading(true); if(window.firebaseModules){ const {getFirestore,doc,setDoc}=window.firebaseModules; await setDoc(doc(getFirestore(),"trips","main"), INITIAL_DATA); } window.location.reload(); };
       const handleFileUpload = async (e) => { const file = e.target.files[0]; if (!file) return; setUploading(true); try { const { getStorage, ref, uploadBytes, getDownloadURL } = window.firebaseModules; const storage = getStorage(); const uniqueName = `${Date.now()}_${file.name}`; const storageRef = ref(storage, 'tickets/' + uniqueName); await uploadBytes(storageRef, file); const url = await getDownloadURL(storageRef); const newData = JSON.parse(JSON.stringify(tripData)); if(!newData.tools.tickets) newData.tools.tickets = []; newData.tools.tickets.push({ name: file.name, refName: uniqueName, url: url, type: file.type, date: new Date().toLocaleDateString() }); await updateCloud(newData); alert("✅ 上傳成功"); } catch (error) { alert(`❌ 失敗: ${error.message}`); } setUploading(false); };
       const handleDeleteTicket = async (i) => { if (!confirm("刪除？")) return; const newData = JSON.parse(JSON.stringify(tripData)); newData.tools.tickets.splice(i, 1); await updateCloud(newData); };
-      const handleEditField = (path, val) => { const newData = JSON.parse(JSON.stringify(tripData)); const parts = path.split('.'); let current = newData; for (let i = 0; i < parts.length - 1; i++) current = current[parts[i]]; current[parts[parts.length - 1]] = val; updateCloud(newData); };
+      
+      const handleEditField = (path, val) => { 
+        const newData = JSON.parse(JSON.stringify(tripData)); 
+        const parts = path.split('.'); 
+        let current = newData; 
+        for (let i = 0; i < parts.length - 1; i++) {
+            if (!current[parts[i]]) current[parts[i]] = {}; 
+            current = current[parts[i]];
+        }
+        current[parts[parts.length - 1]] = val; 
+        updateCloud(newData); 
+      };
+      
       const handleAddItem = (d) => { const newData = JSON.parse(JSON.stringify(tripData)); newData.schedule[d].items.push({ id: Date.now().toString(), time: "00:00", title: "New Item", location: "Location", desc: "...", tags: [], type: "spot" }); updateCloud(newData); };
       const handleDeleteItem = (d, i) => { if(!confirm("刪除？")) return; const newData = JSON.parse(JSON.stringify(tripData)); newData.schedule[d].items.splice(i, 1); updateCloud(newData); };
       const handleAddDate = () => { const d = prompt("日期"); if(!d) return; const newData = JSON.parse(JSON.stringify(tripData)); newData.schedule.push({ date: d, weather: {city:"東京", temp:"-", icon:"sun"}, items: []}); updateCloud(newData); };
@@ -201,6 +257,7 @@
         const [isOpen, setIsOpen] = useState(false);
         const basePath = `schedule.${dayIdx}.items.${itemIdx}`;
         const style = TYPE_STYLES[item.type] || TYPE_STYLES.default;
+        const showGuide = item.guide || isEditMode;
 
         return (
           <div className="flex gap-4 mb-8 relative group fade-in">
@@ -215,10 +272,17 @@
                </div>
                <h3 className="text-lg font-serif font-bold text-[#2C2C2C] leading-snug mb-1">{item.title} <EditBtn path={`${basePath}.title`} originalValue={item.title} label="標題"/></h3>
                <p className="text-sm text-gray-500 font-light leading-relaxed line-clamp-2">{item.desc} <EditBtn path={`${basePath}.desc`} originalValue={item.desc} label="描述"/></p>
+               
                {isOpen && (
                  <div className="mt-4 pt-4 border-t border-dashed border-gray-200 animate-fade-in">
                    <button onClick={(e) => { e.stopPropagation(); window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.location)}`, '_blank'); }} className="flex items-center text-sm font-bold text-[#2C2C2C] hover:opacity-70 mb-3 group-hover:translate-x-1 transition-transform"><i data-lucide="navigation" className="w-4 h-4 mr-2"></i> Navigate to: {item.location} {isEditMode && <button onClick={(e) => { e.stopPropagation(); const val = prompt("修改地點:", item.location); if(val) handleEditField(`${basePath}.location`, val); }} className="ml-2 text-yellow-500"><i data-lucide="pencil" className="w-3 h-3"></i></button>}</button>
-                   {item.guide && (<div className="bg-white/80 p-4 rounded-lg border border-gray-100 text-sm text-gray-600">{item.guide.story && <p className="mb-2 leading-relaxed whitespace-pre-line">{item.guide.story.replace(/\|/g, '\n')}</p>}{item.guide.mustEat && <div className="flex flex-wrap gap-2 mt-2">{item.guide.mustEat.map(f=><span key={f} className="bg-orange-50 text-orange-600 px-2 py-1 text-xs rounded border border-orange-100">🍴 {f}</span>)}</div>}</div>)}
+                   {showGuide && (
+                     <div className="bg-white/80 p-4 rounded-lg border border-gray-100 text-sm text-gray-600 relative group/guide">
+                       <div className="flex items-center mb-2"><span className="text-xs font-bold text-gray-400 tracking-wider">GUIDE NOTE</span>{isEditMode && <EditBtn path={`${basePath}.guide.story`} originalValue={item.guide?.story || ""} label="攻略內容 (用 | 換行)" />}</div>
+                       <p className="mb-2 leading-relaxed whitespace-pre-line">{item.guide?.story ? item.guide.story.replace(/\|/g, '\n') : (isEditMode ? "點擊上方鉛筆新增攻略..." : "")}</p>
+                       {item.guide?.mustEat && <div className="flex flex-wrap gap-2 mt-2">{item.guide.mustEat.map(f=><span key={f} className="bg-orange-50 text-orange-600 px-2 py-1 text-xs rounded border border-orange-100">🍴 {f}</span>)}</div>}
+                     </div>
+                   )}
                  </div>
                )}
              </div>
@@ -262,13 +326,38 @@
              <div className="absolute -bottom-10 -right-10 w-48 h-48 bg-white/5 rounded-full blur-3xl group-hover:bg-white/10 transition-all"></div>
           </div>
 
-          {/* 完整緊急聯絡人卡片 */}
           <div className="mb-8">
             <h3 className="text-[#8B2222] font-bold mb-4 flex items-center text-sm tracking-widest"><i data-lucide="shield-alert" className="w-4 h-4 mr-2"></i> 緊急聯絡 & 支援</h3>
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                <div className="grid grid-cols-2 border-b border-gray-100"><div className="p-6 text-center border-r border-gray-100"><span className="text-xs text-red-400 block mb-1 tracking-widest font-bold">警察 (POLICE)</span><a href="tel:110" className="text-4xl font-serif text-[#9A2525] font-bold block hover:opacity-70">110</a></div><div className="p-6 text-center"><span className="text-xs text-red-400 block mb-1 tracking-widest font-bold">救護 / 火警</span><a href="tel:119" className="text-4xl font-serif text-[#9A2525] font-bold block hover:opacity-70">119</a></div></div>
                <div className="p-6 flex justify-between items-center border-b border-gray-100"><div><h4 className="font-bold text-gray-800 text-lg leading-tight">訪日外國人<br/>醫療 & 急難熱線</h4><p className="text-[10px] text-gray-400 mt-2 uppercase tracking-wide">Japan Visitor Hotline (JNTO)</p><a href="tel:050-3816-2787" className="text-xl font-bold text-gray-600 mt-1 block tracking-wider">050-3816-2787</a><p className="text-[10px] text-gray-300 mt-1">* 24小時對應 (英/中/韓)</p></div><a href="tel:050-3816-2787" className="bg-[#2C2C2C] text-white p-4 rounded-full active:scale-90 transition-transform shadow-md"><i data-lucide="phone" className="w-6 h-6"></i></a></div>
                <div className="p-5 bg-gray-50"><span className="bg-gray-200 text-gray-600 text-[10px] px-2 py-0.5 rounded mb-2 inline-block font-bold">外交部</span><span className="text-sm font-bold text-gray-700 ml-2">台北駐日經濟文化代表處 (東京)</span><div className="mt-3 space-y-2 pl-1"><p className="text-sm text-gray-500 flex items-center"><span className="w-24 text-xs opacity-70">上班時間：</span>03-3280-7811</p><p className="text-sm text-[#9A2525] font-bold flex items-center"><span className="w-24 text-xs opacity-70 text-red-400">急難救助：</span>080-1009-7179</p></div></div>
+            </div>
+          </div>
+
+          {/* 新增：實用日語卡片 */}
+          <div className="mb-8">
+            <h3 className="text-[#2C2C2C] font-bold mb-4 flex items-center text-sm tracking-widest"><i data-lucide="message-circle" className="w-4 h-4 mr-2"></i> 實用日語 (點擊展開)</h3>
+            <div className="grid grid-cols-2 gap-4">
+              {JAPANESE_PHRASES.map((cat, i) => (
+                <div key={i} className={`bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden cursor-pointer transition-all ${openPhraseCategory === i ? 'col-span-2' : ''}`} onClick={() => setOpenPhraseCategory(openPhraseCategory === i ? null : i)}>
+                  <div className="p-4 flex flex-col items-center justify-center h-full">
+                    <i data-lucide={cat.icon} className={`w-8 h-8 mb-2 ${openPhraseCategory === i ? 'text-orange-500' : 'text-gray-400'}`}></i>
+                    <span className="font-bold text-sm text-[#2C2C2C]">{cat.category}</span>
+                  </div>
+                  {openPhraseCategory === i && (
+                    <div className="bg-gray-50 p-4 border-t border-gray-100">
+                      {cat.phrases.map((p, idx) => (
+                        <div key={idx} className="mb-4 last:mb-0 bg-white p-3 rounded-lg shadow-sm">
+                          <p className="text-lg font-bold text-[#2C2C2C] mb-1">{p.jp}</p>
+                          <p className="text-xs text-gray-400 mb-1">{p.romaji}</p>
+                          <p className="text-xs text-orange-600 font-bold">{p.zh}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
             
