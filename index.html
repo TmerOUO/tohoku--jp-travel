@@ -98,6 +98,22 @@
       { category: "急病 & 求救 (SOS)", icon: "ambulance", phrases: [ { jp: "具合が悪いです。", romaji: "Guai ga warui desu", zh: "我不舒服", note: "" }, { jp: "救急車を呼んでください！", romaji: "Kyuukyusha o yonde kudasai!", zh: "請叫救護車！", note: "" }, { jp: "薬をください。", romaji: "Kusuri o kudasai", zh: "請給我藥", note: "" } ] }
     ];
 
+    // --- 內建的數位票券資料 ---
+    const BUILT_IN_TICKETS = [
+      { 
+        name: "🚌 十和田湖接駁 (去程)", 
+        type: "virtual", 
+        date: "2026/02/06",
+        details: { id: "TOW-T119238569", time: "15:55", from: "奧入瀨溪流館公廁前", to: "休屋北停車場廁所前", pax: "4 Adult" }
+      },
+      { 
+        name: "🚌 十和田湖接駁 (回程)", 
+        type: "virtual", 
+        date: "2026/02/06",
+        details: { id: "TOW-T119238576", time: "20:20", from: "休屋北停車場廁所前", to: "奧入瀨溪流館", pax: "4 Adult" }
+      }
+    ];
+
     const INITIAL_DATA = {
       schedule: [
         { date: "01/31 (六)", weather: { city: "東京", temp: "-", icon: "cloud-sun" }, items: [ { id: "s0", type: "transport", time: "06:55", title: "起飛：高雄 -> 成田", location: "小港機場", desc: "BR/JL 航班", tags: ["集合"], guide: { tips: ["VJW截圖備用"] } }, { id: "s01", type: "stay", time: "19:00", title: "APA Hotel Ueno", location: "APA Hotel Ueno Ekimae", desc: "全員東京集合", tags: ["住宿"] } ] },
@@ -109,33 +125,7 @@
       ],
       logistics: { shipping: { from: "APA Hotel Ueno", to: "星野奧入瀨", date: "02/02", address: "〒034-0398 青森県十和田市...", tel: "+81-50-3134-8096" } },
       tools: { 
-        tickets: [
-          // v15.1 新增：根據您提供的 PDF 內容，生成的「原生數位票卡」
-          { 
-            name: "🚌 十和田湖接駁 (去程)", 
-            type: "virtual", // 標記為數位票卡
-            date: "2026/02/06",
-            details: {
-              id: "TOW-T119238569",
-              time: "15:55",
-              from: "奧入瀨溪流館公廁前",
-              to: "休屋北停車場廁所前",
-              pax: "4 Adult"
-            }
-          },
-          { 
-            name: "🚌 十和田湖接駁 (回程)", 
-            type: "virtual", 
-            date: "2026/02/06",
-            details: {
-              id: "TOW-T119238576",
-              time: "20:20",
-              from: "休屋北停車場廁所前",
-              to: "奧入瀨溪流館",
-              pax: "4 Adult"
-            }
-          }
-        ], 
+        tickets: [...BUILT_IN_TICKETS], 
         flights: [], reservations: [], stays: [] 
       }
     };
@@ -151,7 +141,7 @@
       return <span ref={ref} style={{display: 'inline-flex'}}></span>;
     };
 
-    // v15.0: 圖片壓縮
+    // --- 圖片壓縮 ---
     const compressImage = (file) => {
       return new Promise((resolve) => {
         const reader = new FileReader();
@@ -227,6 +217,22 @@
         return () => clearTimeout(timer);
       }, [activeTab, tripData, openPhraseCategory, activePhrase, activeTicket]);
 
+      // --- v15.2: 智慧資料修復邏輯 ---
+      const repairData = (data) => {
+        const newData = JSON.parse(JSON.stringify(data));
+        if (!newData.tools) newData.tools = INITIAL_DATA.tools;
+        if (!newData.tools.tickets) newData.tools.tickets = [];
+        
+        // 檢查是否缺少內建票券，若缺少則自動補上
+        const existingNames = newData.tools.tickets.map(t => t.name);
+        BUILT_IN_TICKETS.forEach(ticket => {
+          if (!existingNames.includes(ticket.name)) {
+            newData.tools.tickets.push(ticket);
+          }
+        });
+        return newData;
+      };
+
       useEffect(() => {
         const initData = async () => {
           try {
@@ -235,8 +241,10 @@
               const app = initializeApp(firebaseConfig);
               const db = getFirestore(app);
               onSnapshot(doc(db, "trips", "main"), (snap) => {
-                if (snap.exists()) { setTripData(snap.data()); } 
-                else { loadFromLocal(); }
+                if (snap.exists()) { 
+                  // 載入雲端資料並執行修復
+                  setTripData(repairData(snap.data())); 
+                } else { loadFromLocal(); }
                 setLoading(false);
               }, (err) => { loadFromLocal(); setLoading(false); });
             } else { loadFromLocal(); setLoading(false); }
@@ -247,8 +255,12 @@
 
       const loadFromLocal = () => {
         const saved = localStorage.getItem('trip_backup');
-        if (saved) { setTripData(JSON.parse(saved)); }
-        else { setTripData(INITIAL_DATA); }
+        if (saved) { 
+          // 載入本地資料並執行修復
+          setTripData(repairData(JSON.parse(saved))); 
+        } else { 
+          setTripData(INITIAL_DATA); 
+        }
       };
 
       const updateCloud = async (newData) => {
@@ -286,14 +298,12 @@
           let fileType = file.type;
           
           if (file.type === "application/pdf") {
-             // PDF 直接讀取，不壓縮
              fileDataUrl = await new Promise((resolve) => {
                 const reader = new FileReader();
                 reader.onload = (e) => resolve(e.target.result);
                 reader.readAsDataURL(file);
              });
           } else if (file.type.startsWith("image/")) {
-             // 圖片進行壓縮
              fileDataUrl = await compressImage(file);
           } else {
              throw new Error("格式不支援，請上傳 PDF 或圖片");
@@ -304,7 +314,7 @@
           newData.tools.tickets.push({ 
             name: file.name, 
             url: fileDataUrl, 
-            type: fileType, // 記錄類型以便 Viewer 判斷
+            type: fileType, 
             date: new Date().toLocaleDateString() 
           }); 
           
@@ -424,10 +434,8 @@
         </div>
       );
 
-      // --- v15.1: 智慧票券預覽器 (三模支援：圖片 / PDF / 數位票卡) ---
       const TicketModal = () => {
         if (!activeTicket) return null;
-        
         const isPdf = activeTicket.type === "application/pdf";
         const isVirtual = activeTicket.type === "virtual";
 
@@ -436,7 +444,6 @@
              <button onClick={() => setActiveTicket(null)} className="absolute top-6 right-6 text-white/50 hover:text-white p-2 bg-white/10 rounded-full backdrop-blur-md transition-colors z-20"><LucideIcon name="x" className="w-6 h-6" /></button>
 
              {isVirtual ? (
-               // --- 數位票卡模式 (Smart Ticket) ---
                <div className="w-full max-w-sm bg-white rounded-3xl overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex flex-col relative border-t-8 border-purple-500" onClick={(e) => e.stopPropagation()}>
                   <div className="p-6 text-center border-b border-dashed border-gray-200">
                     <h3 className="text-lg font-bold text-gray-900 mb-1">{activeTicket.name}</h3>
@@ -444,53 +451,28 @@
                   </div>
                   <div className="p-6 space-y-6">
                     <div className="flex justify-between items-center">
-                       <div className="text-left">
-                         <p className="text-xs text-gray-400 uppercase tracking-wider mb-1">Time</p>
-                         <p className="text-3xl font-bold text-gray-900 font-sans-eng">{activeTicket.details.time}</p>
-                       </div>
-                       <div className="text-right">
-                         <p className="text-xs text-gray-400 uppercase tracking-wider mb-1">Passengers</p>
-                         <p className="text-xl font-bold text-gray-900 font-sans-eng">{activeTicket.details.pax}</p>
-                       </div>
+                       <div className="text-left"><p className="text-xs text-gray-400 uppercase tracking-wider mb-1">Time</p><p className="text-3xl font-bold text-gray-900 font-sans-eng">{activeTicket.details.time}</p></div>
+                       <div className="text-right"><p className="text-xs text-gray-400 uppercase tracking-wider mb-1">Passengers</p><p className="text-xl font-bold text-gray-900 font-sans-eng">{activeTicket.details.pax}</p></div>
                     </div>
                     <div className="bg-gray-50 p-4 rounded-xl space-y-3">
-                       <div className="flex items-start">
-                         <div className="w-2 h-2 bg-purple-500 rounded-full mt-2 mr-3 flex-shrink-0"></div>
-                         <div>
-                           <p className="text-xs text-gray-400 mb-0.5">Pick Up</p>
-                           <p className="text-sm font-bold text-gray-800">{activeTicket.details.from}</p>
-                         </div>
-                       </div>
+                       <div className="flex items-start"><div className="w-2 h-2 bg-purple-500 rounded-full mt-2 mr-3 flex-shrink-0"></div><div><p className="text-xs text-gray-400 mb-0.5">Pick Up</p><p className="text-sm font-bold text-gray-800">{activeTicket.details.from}</p></div></div>
                        <div className="pl-1"><div className="w-0.5 h-6 bg-gray-200 ml-0.5"></div></div>
-                       <div className="flex items-start">
-                         <div className="w-2 h-2 bg-gray-400 rounded-full mt-2 mr-3 flex-shrink-0"></div>
-                         <div>
-                           <p className="text-xs text-gray-400 mb-0.5">Drop Off</p>
-                           <p className="text-sm font-bold text-gray-800">{activeTicket.details.to}</p>
-                         </div>
-                       </div>
+                       <div className="flex items-start"><div className="w-2 h-2 bg-gray-400 rounded-full mt-2 mr-3 flex-shrink-0"></div><div><p className="text-xs text-gray-400 mb-0.5">Drop Off</p><p className="text-sm font-bold text-gray-800">{activeTicket.details.to}</p></div></div>
                     </div>
-                    <div className="text-center">
-                       <p className="text-xs text-gray-400 mb-2">Booking ID</p>
-                       <p className="text-2xl font-mono font-bold text-gray-800 tracking-wider bg-gray-100 py-2 rounded-lg">{activeTicket.details.id}</p>
-                    </div>
+                    <div className="text-center"><p className="text-xs text-gray-400 mb-2">Booking ID</p><p className="text-2xl font-mono font-bold text-gray-800 tracking-wider bg-gray-100 py-2 rounded-lg">{activeTicket.details.id}</p></div>
                   </div>
                </div>
              ) : (
-               // --- 圖片/PDF 模式 ---
                <div className={`w-full max-w-sm bg-white rounded-3xl overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex flex-col relative ${isPdf ? 'h-[85vh]' : 'max-h-[85vh]'}`} onClick={(e) => e.stopPropagation()}>
                   <div className="flex-1 bg-gray-100 relative overflow-hidden flex items-center justify-center">
                      {isPdf ? (
                        <iframe src={activeTicket.url} className="w-full h-full border-0" title="PDF Viewer"></iframe>
                      ) : (
-                       <div className="w-full h-full overflow-auto p-2 flex items-center justify-center">
-                         <img src={activeTicket.url} alt={activeTicket.name} className="max-w-full w-auto h-auto object-contain shadow-sm rounded-lg" />
-                       </div>
+                       <div className="w-full h-full overflow-auto p-2 flex items-center justify-center"><img src={activeTicket.url} alt={activeTicket.name} className="max-w-full w-auto h-auto object-contain shadow-sm rounded-lg" /></div>
                      )}
                   </div>
                   <div className="p-6 bg-white border-t border-dashed border-gray-200 relative">
-                     <div className="absolute -top-3 -left-3 w-6 h-6 bg-black rounded-full"></div>
-                     <div className="absolute -top-3 -right-3 w-6 h-6 bg-black rounded-full"></div>
+                     <div className="absolute -top-3 -left-3 w-6 h-6 bg-black rounded-full"></div><div className="absolute -top-3 -right-3 w-6 h-6 bg-black rounded-full"></div>
                      <h3 className="text-xl font-bold text-gray-900 mb-1 line-clamp-2">{activeTicket.name}</h3>
                      <p className="text-xs text-gray-400 font-sans-eng mb-4 uppercase tracking-wider">Added on {activeTicket.date}</p>
                      <button onClick={() => handleDeleteTicket(activeTicket.index)} className="w-full py-3 border border-red-100 text-red-500 rounded-xl font-bold text-sm hover:bg-red-50 active:scale-95 transition-all flex items-center justify-center"><LucideIcon name="trash-2" className="w-4 h-4 mr-2" /> 移除票券 (Remove)</button>
