@@ -2,50 +2,44 @@
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>東北大遷徙 - 智慧導遊</title>
   
   <script src="https://cdn.tailwindcss.com"></script>
-  
   <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-  
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  
   <script src="https://unpkg.com/lucide@latest"></script>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
     import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-    
-    // 將 Firebase 變數掛載到全域，讓下方的 Babel 腳本可以使用
     window.firebaseModules = { initializeApp, getFirestore, collection, getDocs };
   </script>
 
   <style>
-    /* 禪意字體設定 */
     @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;700&family=Zen+Maru+Gothic:wght@400;700&display=swap');
-    body { background-color: #F7F4EB; font-family: 'Zen Maru Gothic', sans-serif; }
+    body { background-color: #F7F4EB; font-family: 'Zen Maru Gothic', sans-serif; -webkit-tap-highlight-color: transparent; }
     .font-serif { font-family: 'Noto Serif TC', serif; }
+    /* 隱藏捲軸 */
     .no-scrollbar::-webkit-scrollbar { display: none; }
     .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    /* 平滑捲動 */
+    html { scroll-behavior: smooth; }
   </style>
 </head>
 <body>
-  
   <div id="root"></div>
 
   <script type="text/babel">
-    const { useState, useEffect } = React;
+    const { useState, useEffect, useRef } = React;
     const { 
       MapPin, Utensils, Train, Calendar, Truck, AlertCircle, 
       CloudSun, Info, Plane, Wallet, Home, User, Navigation 
     } = lucide.icons;
 
-    // --- 在此填入 Firebase Config ---
+    // --- Firebase Config (請填入您的金鑰) ---
     const firebaseConfig = {
-      // 請將您的金鑰貼在這裡，如果沒有填寫會顯示範例資料
-      apiKey: "AIzaSyC2IjvPIILHl3ftIZ8Iw2pBDWoXbE8SKAw",
       authDomain: "tohoku-travel-app.firebaseapp.com",
       projectId: "tohoku-travel-app",
       storageBucket: "tohoku-travel-app.firebasestorage.app",
@@ -54,47 +48,67 @@
       measurementId: "G-8P7HE76T86"
     };
 
-    // 初始化 Firebase (如果金鑰沒填，會自動略過)
+    // Firebase 初始化邏輯
     let db = null;
     try {
       if (window.firebaseModules && firebaseConfig.apiKey !== "YOUR_API_KEY") {
         const { initializeApp, getFirestore } = window.firebaseModules;
         const app = initializeApp(firebaseConfig);
         db = getFirestore(app);
-        console.log("Firebase 連線成功！");
-      } else {
-        console.log("使用靜態範例資料模式");
+        console.log("Firebase 連線成功");
       }
-    } catch (e) {
-      console.log("Firebase 初始化跳過");
-    }
+    } catch (e) {}
 
-    // --- 靜態行程數據 (來自您的 PDF) ---
+    // --- 資料數據 ---
     const TRIP_DATA = {
       schedule: [
+        {
+          date: "01/31 (六)",
+          weather: { city: "東京", temp: "6°C", icon: "晴" },
+          items: [
+             { id: "s0", type: "transport", time: "06:55", title: "起飛：高雄 -> 成田", location: "小港機場", desc: "BR/JL 航班，準備出發！", tags: ["集合"] },
+             { id: "s01", type: "stay", time: "19:00", title: "APA Hotel Ueno", location: "APA Hotel Ueno Ekimae", desc: "全員東京集合，映萱 19:00 抵達。", tags: ["住宿"] }
+          ]
+        },
         {
           date: "02/01 (日)",
           weather: { city: "東京", temp: "8°C", icon: "晴" },
           items: [
-            { id: "s1", type: "food", time: "12:00", title: "燒肉 29 Terrace", location: "新宿御苑店", desc: "書瑜已訂位。東京必吃的高評價燒肉，建議午間套餐CP值高。", tags: ["必吃美食", "已訂位"] },
-            { id: "s2", type: "spot", time: "21:00", title: "Memento Mori", location: "虎之門Hills", desc: "高空景觀酒吧，享受東京夜景。", tags: ["微醺之夜"] }
+            { id: "s1", type: "food", time: "12:00", title: "燒肉 29 Terrace", location: "Yakiniku 29 Terrace Shinjuku Gyoen", desc: "書瑜已訂位。東京必吃的高評價燒肉，建議午間套餐CP值高。", tags: ["必吃美食", "已訂位"] },
+            { id: "s2", type: "spot", time: "21:00", title: "Memento Mori", location: "Toranomon Hills", desc: "高空景觀酒吧，享受東京夜景。", tags: ["微醺之夜"] }
           ]
         },
         {
           date: "02/02 (一)",
-          weather: { city: "山形", temp: "-2°C", icon: "雪" },
+          weather: { city: "銀山", temp: "-2°C", icon: "雪" },
           items: [
-            { id: "t1", type: "transport", time: "07:18 - 10:29", title: "新幹線移動", location: "上野站 -> 大石田站", desc: "山形新幹線，車程約 3 小時 11 分。", tags: ["JR Pass"] },
-            { id: "t2", type: "transport", time: "13:30", title: "古山閣接駁車", location: "JR 大石田站", desc: "注意！一人限持一件 24 吋行李上車。", tags: ["重要接駁", "行李限制"] },
-            { id: "s3", type: "stay", time: "15:00", title: "銀山溫泉 古山閣", location: "山形県尾花沢市大字銀山新畑423", desc: "大正浪漫的極致。需準備現金支付尾款。", cashAlert: 123800, guide: "【導遊說故事】銀山溫泉保留了百年前大正時代的木造建築，夜晚煤氣燈亮起時，與雪景交織成神隱少女般的夢幻場景。" }
+            { id: "t1", type: "transport", time: "07:18", title: "新幹線：上野 -> 大石田", location: "Ueno Station", desc: "山形新幹線，車程約 3 小時 11 分。", tags: ["JR Pass"] },
+            { id: "t2", type: "transport", time: "13:30", title: "古山閣接駁車", location: "Oishida Station", desc: "注意！一人限持一件 24 吋行李上車。", tags: ["重要接駁", "行李限制"] },
+            { id: "s3", type: "stay", time: "15:00", title: "銀山溫泉 古山閣", location: "Ginzan Onsen Kozankaku", desc: "大正浪漫的極致。需準備現金支付尾款。", cashAlert: 123800, guide: "【導遊筆記】銀山溫泉保留了百年前大正時代的木造建築，必拍紅橋與能登屋。" }
           ]
         },
         {
           date: "02/03 (二)",
           weather: { city: "秋田", temp: "-3°C", icon: "大雪" },
           items: [
-            { id: "t3", type: "transport", time: "09:40 - 14:04", title: "銀山 -> 田澤湖 (大遷徙)", location: "古山閣 -> 田澤湖", desc: "最複雜的一段：大石田(10:31) -> 新庄 -> 院內 -> 大曲 -> 田澤湖(14:04)。", tags: ["轉乘 3 回", "車資 ¥4,820"] },
-            { id: "s4", type: "stay", time: "15:00", title: "田澤湖民宿 Farmstay", location: "田澤湖", desc: "體驗道地秋田農家生活。", tags: ["一泊二食"] }
+            { id: "t3", type: "transport", time: "09:40", title: "銀山 -> 田澤湖 (大遷徙)", location: "Ginzan Onsen", desc: "最複雜的一段：大石田(10:31) -> 新庄 -> 院內 -> 大曲 -> 田澤湖(14:04)。", tags: ["轉乘 3 回", "車資 ¥4,820"] },
+            { id: "s4", type: "stay", time: "15:00", title: "田澤湖民宿 Farmstay", location: "Tazawako", desc: "體驗道地秋田農家生活。", tags: ["一泊二食"] }
+          ]
+        },
+        {
+          date: "02/04 (三)",
+          weather: { city: "乳頭", temp: "-5°C", icon: "雪" },
+          items: [
+             { id: "s5", type: "spot", time: "10:00", title: "田澤湖環湖", location: "Tazawa Lake", desc: "辰子像、御座石神社。", tags: ["觀光計程車"] },
+             { id: "s6", type: "stay", time: "15:00", title: "乳頭溫泉 鶴之湯", location: "Tsurunoyu Onsen", desc: "秘湯中的秘湯。需準備現金。", cashAlert: 69520, guide: "【導遊筆記】男女混浴是這裡的特色，如果害羞可以利用女性專用的露天風呂。" }
+          ]
+        },
+        {
+          date: "02/05 (四)",
+          weather: { city: "奧入瀨", temp: "-4°C", icon: "雪" },
+          items: [
+             { id: "t4", type: "transport", time: "09:30", title: "前往奧入瀨", location: "Tsurunoyu Onsen", desc: "接駁至田澤湖站 -> 新幹線至八戶 -> 飯店接駁。", tags: ["移動日"] },
+             { id: "s7", type: "stay", time: "15:00", title: "星野奧入瀨溪流飯店", location: "Hoshino Resorts Oirase Keiryu Hotel", desc: "極致奢華的冰雪體驗。", guide: "【導遊筆記】別忘了領取從上野寄來的行李！" }
           ]
         }
       ],
@@ -114,7 +128,7 @@
       }
     };
 
-    // --- UI 組件 ---
+    // --- UI Components ---
     const ZenCard = ({ children, className = "" }) => (
       <div className={`bg-[#F9F9F9] rounded-2xl p-5 mb-4 shadow-[4px_4px_0px_#E0E5D5] border border-stone-100 ${className}`}>
         {children}
@@ -126,62 +140,134 @@
         alert: "bg-red-100 text-red-700 font-bold border-red-200",
         food: "bg-orange-100 text-orange-800 border-orange-200",
         transport: "bg-blue-50 text-blue-700 border-blue-100",
+        stay: "bg-indigo-50 text-indigo-700 border-indigo-100",
+        spot: "bg-green-50 text-green-700 border-green-100",
         guide: "bg-[#E0E5D5] text-[#4A5D23] border-[#D4CEC3]"
       };
       const style = styles[type] || "bg-gray-100 text-gray-600";
       return <span className={`text-xs px-2 py-1 rounded-md border mr-2 mb-1 inline-block ${style}`}>{text}</span>;
     };
 
+    // 修正後的導航按鈕：使用通用格式
     const NavBtn = ({ location }) => (
       <button 
-        onClick={(e) => { e.stopPropagation(); window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`, '_blank'); }}
+        onClick={(e) => { 
+          e.stopPropagation(); 
+          // 使用 Google Maps Search API，這是最穩定的方式
+          window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`, '_blank'); 
+        }}
         className="mt-3 flex items-center justify-center w-full py-2 bg-[#2C2C2C] text-white text-xs rounded-xl active:scale-95 transition-transform"
       >
-        <i data-lucide="navigation" className="w-4 h-4 mr-2"></i> 開啟 Google Maps 導航
+        <i data-lucide="navigation" className="w-4 h-4 mr-2"></i> 開啟 Google Maps
       </button>
     );
 
-    // --- 主程式 Views ---
-    const ScheduleView = () => (
-      <div className="pb-24 px-4 pt-4">
-        {TRIP_DATA.schedule.map((day, idx) => (
-          <div key={idx} className="mb-8">
-            <div className="flex items-center justify-between mb-4 px-2">
-              <h2 className="text-xl font-serif font-bold text-[#2C2C2C]">{day.date}</h2>
-              <div className="flex items-center text-sm text-gray-500 bg-white px-3 py-1 rounded-full shadow-sm">
-                <i data-lucide="cloud-sun" className="w-4 h-4 mr-2 text-orange-400"></i>
-                <span>{day.weather.city} {day.weather.temp}</span>
-              </div>
+    // --- 日期選擇器組件 (Top Bar) ---
+    const DateHeader = ({ dates, selectedIndex, onSelect }) => {
+      const scrollRef = useRef(null);
+
+      // 自動捲動到選中的日期
+      useEffect(() => {
+        if (scrollRef.current) {
+          const selectedEl = scrollRef.current.children[selectedIndex];
+          if (selectedEl) {
+            selectedEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+          }
+        }
+      }, [selectedIndex]);
+
+      return (
+        <div className="fixed top-0 left-0 right-0 z-40 bg-[#F7F4EB]/95 backdrop-blur-sm shadow-sm pt-2 pb-2">
+          <div 
+            ref={scrollRef}
+            className="flex overflow-x-auto no-scrollbar px-4 space-x-3"
+          >
+            {dates.map((d, i) => {
+              const isSelected = i === selectedIndex;
+              return (
+                <button 
+                  key={i}
+                  onClick={() => onSelect(i)}
+                  className={`flex-shrink-0 px-4 py-2 rounded-full text-sm transition-all whitespace-nowrap ${
+                    isSelected 
+                      ? "bg-[#2C2C2C] text-white font-bold shadow-md transform scale-105" 
+                      : "bg-white text-gray-500 border border-gray-200"
+                  }`}
+                >
+                  {d}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      );
+    };
+
+    // --- 行程視圖 (整合日期切換) ---
+    const ScheduleView = () => {
+      // 預設選取今天 (如果日期還沒到就選第一天)
+      const [selectedIndex, setSelectedIndex] = useState(0);
+      const currentDay = TRIP_DATA.schedule[selectedIndex];
+      
+      return (
+        <div className="min-h-screen">
+          {/* 固定頂部日期列 */}
+          <DateHeader 
+            dates={TRIP_DATA.schedule.map(d => d.date)} 
+            selectedIndex={selectedIndex} 
+            onSelect={setSelectedIndex} 
+          />
+
+          {/* 內容區塊 (增加 padding-top 避免被日期列擋住) */}
+          <div className="pt-20 px-4 pb-24 animate-fade-in">
+            
+            {/* 天氣卡片 */}
+            <div className="flex items-center justify-center mb-6 bg-white rounded-xl py-2 px-4 shadow-sm w-fit mx-auto border border-orange-100">
+              <i data-lucide="cloud-sun" className="w-5 h-5 mr-2 text-orange-400"></i>
+              <span className="text-[#2C2C2C] font-bold mr-2">{currentDay.weather.city}</span>
+              <span className="text-gray-500">{currentDay.weather.temp}</span>
             </div>
-            {day.items.map((item) => (
+
+            {/* 行程列表 */}
+            {currentDay.items.map((item) => (
               <ZenCard key={item.id} className="relative">
                 <div className="flex justify-between items-start mb-2">
                   <div className="flex items-center space-x-2">
-                    <span className="text-sm font-mono text-gray-500 font-bold">{item.time}</span>
+                    <span className="text-lg font-mono text-[#2C2C2C] font-bold bg-[#E0E5D5]/30 px-2 rounded">{item.time}</span>
                   </div>
-                  {item.cashAlert && <Tag type="alert" text={`準備現金 ¥${item.cashAlert.toLocaleString()}`} />}
+                  {item.cashAlert && <Tag type="alert" text={`備妥現金 ¥${item.cashAlert.toLocaleString()}`} />}
                 </div>
+                
                 <h3 className="text-lg font-bold text-[#2C2C2C] mb-1">{item.title}</h3>
-                <p className="text-sm text-gray-600 mb-2 leading-relaxed">{item.desc}</p>
-                <div className="flex flex-wrap">
-                  {item.tags?.map(t => <Tag key={t} text={t} type={item.type === 'food' ? 'food' : 'transport'} />)}
+                <p className="text-sm text-gray-600 mb-3 leading-relaxed">{item.desc}</p>
+                
+                <div className="flex flex-wrap gap-1">
+                  {item.tags?.map(t => <Tag key={t} text={t} type={item.type} />)}
                 </div>
+
                 {item.guide && (
-                  <div className="mt-3 p-3 bg-[#F7F4EB] rounded-xl text-xs text-[#5C5C5C] leading-5 border border-[#E0E5D5]">
+                  <div className="mt-3 p-3 bg-[#fff] rounded-xl text-xs text-[#5C5C5C] leading-5 border-l-4 border-[#4A5D23] shadow-sm">
                     <div className="flex items-center mb-1 font-bold text-[#4A5D23]">
                       <i data-lucide="info" className="w-3 h-3 mr-1"></i> 導遊筆記
                     </div>
                     {item.guide}
                   </div>
                 )}
+
                 <NavBtn location={item.location} />
               </ZenCard>
             ))}
-          </div>
-        ))}
-      </div>
-    );
 
+            {/* 如果當天行程很少，顯示提示 */}
+            {currentDay.items.length === 0 && (
+              <div className="text-center text-gray-400 py-10">本日無特定行程，自由探索！</div>
+            )}
+          </div>
+        </div>
+      );
+    };
+
+    // --- 其他視圖保持不變 ---
     const LogisticsView = () => (
       <div className="pb-24 px-4 pt-6">
         <h2 className="text-2xl font-serif font-bold mb-6 text-[#2C2C2C]">大遷徙物流</h2>
@@ -253,18 +339,20 @@
       );
     };
 
+    // --- Main App ---
     const App = () => {
       const [activeTab, setActiveTab] = useState('schedule');
-      useEffect(() => { lucide.createIcons(); }, [activeTab]); // 確保圖標正確載入
+      useEffect(() => { lucide.createIcons(); }, [activeTab]);
 
       return (
-        <div className="max-w-md mx-auto min-h-screen relative shadow-2xl overflow-hidden bg-[#F7F4EB]">
-          <div className="h-full overflow-y-auto no-scrollbar">
-            {activeTab === 'schedule' && <ScheduleView />}
-            {activeTab === 'logistics' && <LogisticsView />}
-            {activeTab === 'tools' && <ToolsView />}
-          </div>
-          <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white/90 backdrop-blur-md border-t border-gray-200 p-2 pb-5 flex justify-around items-center z-50">
+        <div className="max-w-md mx-auto min-h-screen relative shadow-2xl bg-[#F7F4EB]">
+          
+          {activeTab === 'schedule' && <ScheduleView />}
+          {activeTab === 'logistics' && <LogisticsView />}
+          {activeTab === 'tools' && <ToolsView />}
+          
+          {/* Bottom Navigation */}
+          <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white/95 backdrop-blur-md border-t border-gray-200 p-2 pb-5 flex justify-around items-center z-50">
             <button onClick={() => setActiveTab('schedule')} className={`flex flex-col items-center p-2 transition-all ${activeTab === 'schedule' ? 'text-[#2C2C2C] scale-105' : 'text-gray-400'}`}>
               <i data-lucide="calendar" className="w-6 h-6"></i><span className="text-[10px] mt-1 font-bold">行程</span>
             </button>
