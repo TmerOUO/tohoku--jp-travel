@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>東北大遷徙 - 智慧導遊</title>
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getFirestore, doc, getDoc, setDoc, onSnapshot, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+    import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
+    window.firebaseModules = { initializeApp, getFirestore, doc, getDoc, setDoc, onSnapshot, updateDoc, getStorage, ref, uploadBytes, getDownloadURL };
+  </script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;700&family=Zen+Maru+Gothic:wght@400;500;700&family=Inter:wght@400;600&display=swap');
+    
+    body { background-color: #FDFAF5; font-family: 'Zen Maru Gothic', sans-serif; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+    .font-serif { font-family: 'Noto Serif TC', serif; }
+    .font-sans-eng { font-family: 'Inter', sans-serif; }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    
+    /* 動畫效果 */
+    .fade-in { animation: fadeIn 0.4s ease-out forwards; will-change: transform, opacity; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    .scale-in { animation: scaleIn 0.2s ease-out forwards; }
+    @keyframes scaleIn { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    
+    details > summary { list-style: none; }
+    details > summary::-webkit-details-marker { display: none; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    // --- [關鍵設定] 版本控制 ---
+    // 只要修改這個字串，使用者打開 App 時就會強制重置資料，確保看到最新票券
+    const DATA_VERSION = "v18.0_TowadaTicketsAdded";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyC2IjvPIILHl3ftIZ8Iw2pBDWoXbE8SKAw",
+      authDomain: "tohoku-travel-app.firebaseapp.com",
+      projectId: "tohoku-travel-app",
+      storageBucket: "tohoku-travel-app.appspot.com",
+      messagingSenderId: "674159226780",
+      appId: "1:674159226780:web:92dda0de23fb328114e259",
+      measurementId: "G-8P7HE76T86"
+    };
+
+    // --- 1. 預設行程資料 (包含 2/3 詳細轉乘) ---
+    const INITIAL_DATA = {
+      version: DATA_VERSION,
+      schedule: [
+        { date: "01/31 (六)", weather: { city: "東京", temp: "-", icon: "cloud-sun" }, items: [ { id: "s0", type: "transport", time: "06:55", title: "起飛：高雄 -> 成田", location: "小港機場", desc: "BR/JL 航班", tags: ["集合"] }, { id: "s01", type: "stay", time: "19:00", title: "APA Hotel Ueno", location: "APA Hotel Ueno Ekimae", desc: "全員東京集合", tags: ["住宿"] } ] },
+        { date: "02/01 (日)", weather: { city: "東京", temp: "-", icon: "sun" }, items: [ { id: "s1", type: "food", time: "12:00", title: "燒肉 29 Terrace", location: "Yakiniku 29 Terrace", desc: "必吃高評價燒肉", tags: ["已訂位"], guide: { mustEat: ["厚切牛舌"], reservation: { code: "書瑜" } } }, { id: "s1b", type: "spot", time: "20:30", title: "Memento Mori", location: "Toranomon Hills", desc: "世界可可豆靈感酒吧", tags: ["Cacao調酒"], guide: { story: "🍫 概念：以世界各地的可可豆為靈感設計|🧪 特色：這裡不談生死，而是像實驗室一樣萃取可可的風味|🍸 必點：Cacao Pulp Fizz (可可果肉調酒)|📍 位置：虎之門 Hills 3樓，黑色密門" } } ] },
+        { date: "02/02 (一)", weather: { city: "銀山", temp: "-", icon: "snowflake" }, items: [ { id: "t1", type: "transport", time: "07:18", title: "新幹線 -> 大石田", location: "Ueno Station", desc: "山形新幹線", tags: ["JR Pass"] }, { id: "s3", type: "stay", time: "15:00", title: "銀山溫泉 古山閣", location: "Ginzan Onsen", desc: "尾款付現", cashAlert: 123800 } ] },
+        { date: "02/03 (二)", weather: { city: "秋田", temp: "-", icon: "snowflake" }, items: [ { id: "t3_1", type: "transport", time: "09:40", title: "古山閣接駁車", location: "Ginzan Onsen", desc: "前往 JR 大石田站", tags: ["免費接駁"] }, { id: "t3_2", type: "transport", time: "10:31", title: "山形新幹線 -> 新庄", location: "Oishida Station", desc: "つばさ (對號座)", tags: ["JR Pass"] }, { id: "t3_3", type: "transport", time: "11:18", title: "奧羽本線 -> 院內", location: "Shinjo Station", desc: "往 橫堀 行", tags: ["普通車"] }, { id: "t3_4", type: "transport", time: "12:11", title: "奧羽本線 -> 大曲", location: "Innai Station", desc: "往 秋田 行", tags: ["普通車"] }, { id: "t3_5", type: "transport", time: "13:39", title: "秋田新幹線 -> 角館", location: "Omagari Station", desc: "こまち (對號座)", tags: ["JR Pass"] }, { id: "f_kakunodate", type: "food", time: "14:00", title: "お食事処 桜の里", location: "Kakunodate", desc: "必吃：比內地雞親子丼 & 稻庭烏龍麵", tags: ["午餐"] }, { id: "t3_6", type: "transport", time: "17:02", title: "前往田澤湖站", location: "Kakunodate Station", desc: "車程約 13 分鐘", tags: [] }, { id: "t3_7", type: "transport", time: "17:20", title: "田澤湖一周線 (右周り)", location: "Tazawako Station", desc: "前往「上田子ノ木」", tags: ["巴士"], guide: { story: "🚌 站牌：田澤湖站前|🚏 下車：上田子ノ木 (17:39 抵達)|🚶 步行：下車後步行約 3 分鐘抵達民宿" } }, { id: "s4", type: "stay", time: "18:00", title: "田澤湖民宿 Farmstay", location: "Tazawako", desc: "體驗道地秋田農家生活", tags: ["一泊二食"] } ] },
+        { date: "02/04 (三)", weather: { city: "乳頭", temp: "-", icon: "snowflake" }, items: [ { id: "s6", type: "stay", time: "15:00", title: "乳頭溫泉 鶴之湯", location: "Tsurunoyu Onsen", desc: "秘湯混浴", cashAlert: 69520 } ] },
+        { date: "02/05 (四)", weather: { city: "奧入瀨", temp: "-", icon: "snowflake" }, items: [ { id: "s7", type: "stay", time: "15:00", title: "星野奧入瀨", location: "Hoshino Resorts", desc: "領取行李", tags: ["必住"] } ] }
+      ],
+      tools: { 
+        // 內建票券：根據 PDF 寫入
+        tickets: [
+          { 
+            name: "🚌 十和田湖接駁 (去程)", type: "virtual", date: "2026/02/06",
+            details: { id: "TOW-T119238569", time: "15:55", from: "奧入瀨溪流館公廁前", to: "休屋北停車場廁所前", pax: "4 Adult" }
+          },
+          { 
+            name: "🚌 十和田湖接駁 (回程)", type: "virtual", date: "2026/02/06",
+            details: { id: "TOW-T119238576", time: "20:20", from: "休屋北停車場廁所前", to: "奧入瀨溪流館", pax: "4 Adult" }
+          }
+        ], 
+        flights: [], reservations: [], stays: [] 
+      }
+    };
+
+    // --- 2. 實用日語 (v11.2 版) ---
+    const JAPANESE_PHRASES = [
+      { category: "餐廳 & 預約", icon: "calendar-check", phrases: [ { jp: "予約しています。", romaji: "Yoyaku shiteimasu", zh: "我有預約", note: "進店第一句話" }, { jp: "4人です。", romaji: "Yo-nin desu", zh: "我們有 4 個人", note: "" }, { jp: "お会計をお願いします。", romaji: "O-kaikei o onegaishimasu", zh: "麻煩結帳", note: "" } ] },
+      { category: "萬能句型", icon: "sparkles", phrases: [ { jp: "______ はありますか？", romaji: "... wa arimasu ka?", zh: "請問有 ______ 嗎？", note: "👉 填空：廁所(Toire)、菜單(Menu)" }, { jp: "______ をください。", romaji: "... o kudasai", zh: "請給我 ______", note: "👉 填空：這個(Kore)、水(Omizu)" }, { jp: "______ はどこですか？", romaji: "... wa doko desu ka?", zh: "請問 ______ 在哪裡？", note: "👉 填空：車站(Eki)、這裡(Koko)" } ] },
+      { category: "購物", icon: "shopping-bag", phrases: [ { jp: "袋をください。", romaji: "Fukuro o kudasai", zh: "請給我塑膠袋", note: "" }, { jp: "レシートは要りません。", romaji: "Reshiito wa irimasen", zh: "不需要收據", note: "" }, { jp: "免税になりますか？", romaji: "Menzei ni narimasu ka?", zh: "可以免稅嗎？", note: "" } ] },
+      { category: "急救 SOS", icon: "ambulance", phrases: [ { jp: "具合が悪いです。", romaji: "Guai ga warui desu", zh: "我不舒服", note: "" }, { jp: "薬をください。", romaji: "Kusuri o kudasai", zh: "請給我藥", note: "" } ] }
+    ];
+
+    const CITY_COORDS = { "東京":{lat:35.6895,lon:139.6917}, "銀山":{lat:38.5705,lon:140.3996}, "秋田":{lat:39.7167,lon:140.1032}, "乳頭":{lat:39.7995,lon:140.7692}, "奧入瀨":{lat:40.5847,lon:140.9631} };
+    const TYPE_STYLES = { transport:{color:"border-blue-400",text:"text-blue-500",bg:"bg-blue-50",label:"TRANSPORT",icon:"train-front"}, food:{color:"border-orange-400",text:"text-orange-500",bg:"bg-orange-50",label:"DINING",icon:"utensils"}, stay:{color:"border-indigo-400",text:"text-indigo-500",bg:"bg-indigo-50",label:"ACCOMMODATION",icon:"bed"}, spot:{color:"border-teal-500",text:"text-teal-600",bg:"bg-teal-50",label:"SIGHTSEEING",icon:"camera"}, default:{color:"border-gray-300",text:"text-gray-400",bg:"bg-gray-50",label:"ACTIVITY",icon:"circle"} };
+
+    // --- 圖標元件 (解決 React 衝突) ---
+    const LucideIcon = ({ name, className }) => {
+      const ref = useRef(null);
+      useEffect(() => { if (window.lucide && ref.current) { ref.current.innerHTML = `<i data-lucide="${name}" class="${className}"></i>`; window.lucide.createIcons({ root: ref.current, nameAttr: 'data-lucide', attrs: { class: className } }); } }, [name, className]);
+      return <span ref={ref} style={{display:'inline-flex'}}></span>;
+    };
+
+    const App = () => {
+      const [tripData, setTripData] = useState(null);
+      const [activeTab, setActiveTab] = useState('schedule');
+      const [isEditMode, setIsEditMode] = useState(false);
+      const [activeTicket, setActiveTicket] = useState(null);
+      const [openPhraseCategory, setOpenPhraseCategory] = useState(null);
+      const [activePhrase, setActivePhrase] = useState(null);
+
+      // --- 資料載入核心：強制重置邏輯 ---
+      useEffect(() => {
+        const initData = async () => {
+          // 1. 讀取本地暫存
+          const saved = localStorage.getItem('trip_backup');
+          let currentData = saved ? JSON.parse(saved) : null;
+
+          // 2. 版本檢查：如果沒有資料，或是版本舊，直接覆蓋
+          if (!currentData || currentData.version !== DATA_VERSION) {
+            console.log("偵測到新版本，強制更新資料...");
+            currentData = INITIAL_DATA;
+            localStorage.setItem('trip_backup', JSON.stringify(INITIAL_DATA));
+          }
+
+          // 3. 設定狀態
+          setTripData(currentData);
+
+          // 4. (選用) 嘗試連線 Firebase 備份
+          if (window.firebaseModules) {
+             const { initializeApp, getFirestore, doc, getDoc } = window.firebaseModules;
+             try {
+               const db = getFirestore(initializeApp(firebaseConfig));
+               // 這裡我們只讀取不寫入，避免蓋掉本地的新票券
+               // 實際應用可做更複雜的合併，但目前以「保證有票」為優先
+             } catch (e) { console.log("Firebase 離線模式"); }
+          }
+        };
+        initData();
+      }, []);
+
+      const updateData = (newData) => {
+        setTripData(newData);
+        localStorage.setItem('trip_backup', JSON.stringify(newData));
+      };
+
+      const handleForceReset = () => {
+        if(!confirm("⚠️ 確定要重置為預設狀態？")) return;
+        localStorage.removeItem('trip_backup');
+        window.location.reload();
+      };
+
+      // 票券上傳處理 (壓縮圖片 / 讀取 PDF)
+      const handleFileUpload = async (e) => {
+        const file = e.target.files[0]; if(!file) return;
+        let url = "";
+        if(file.type === "application/pdf") {
+           url = await new Promise(r => { const fr = new FileReader(); fr.onload = e => r(e.target.result); fr.readAsDataURL(file); });
+        } else {
+           // 簡易圖片壓縮
+           url = await new Promise(r => { 
+             const fr = new FileReader(); fr.onload = ev => {
+               const img = new Image(); img.onload = () => {
+                 const cvs = document.createElement('canvas'); 
+                 const scale = 800 / img.width; 
+                 cvs.width = 800; cvs.height = img.height * scale;
+                 cvs.getContext('2d').drawImage(img,0,0,cvs.width,cvs.height);
+                 r(cvs.toDataURL('image/jpeg', 0.7));
+               }; img.src = ev.target.result;
+             }; fr.readAsDataURL(file);
+           });
+        }
+        const newData = {...tripData};
+        newData.tools.tickets.push({ name: file.name, url: url, type: file.type, date: new Date().toLocaleDateString() });
+        updateData(newData);
+        alert("✅ 上傳成功");
+      };
+
+      if (!tripData) return <div className="flex h-screen items-center justify-center text-gray-500">載入中...</div>;
+
+      return (
+        <div className="max-w-md mx-auto min-h-screen relative shadow-2xl bg-[#FDFAF5] pb-24">
+          
+          {/* --- 分頁：行程 (Schedule) --- */}
+          {activeTab === 'schedule' && (
+            <div className="pt-20 px-5 animate-fade-in">
+              {tripData.schedule.map((day, idx) => (
+                <div key={idx} className="mb-10">
+                  <div className="flex items-center mb-4 sticky top-0 bg-[#FDFAF5]/95 backdrop-blur py-2 z-10">
+                    <div className="w-2 h-8 bg-[#2C2C2C] mr-3"></div>
+                    <h2 className="text-2xl font-serif font-bold text-[#2C2C2C]">{day.date}</h2>
+                    <span className="ml-auto text-xs bg-gray-200 px-2 py-1 rounded text-gray-600">{day.weather.city}</span>
+                  </div>
+                  <div className="space-y-6">
+                    {day.items.map((item, i) => {
+                      const style = TYPE_STYLES[item.type] || TYPE_STYLES.default;
+                      return (
+                        <div key={i} className="flex gap-4 relative">
+                          <div className="w-12 text-right pt-1"><span className="font-serif text-lg font-bold text-gray-800">{item.time}</span></div>
+                          <div className={`flex-1 border-l-2 ${style.color} pl-5 pb-4`}>
+                            <div className="mb-1 flex items-center">
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${style.bg} ${style.text} tracking-wider mr-2`}>{style.label}</span>
+                              {item.tags?.map(t => <span key={t} className="text-[10px] text-gray-400 border border-gray-200 px-1 rounded mr-1">{t}</span>)}
+                            </div>
+                            <h3 className="text-lg font-bold text-[#2C2C2C] leading-tight mb-1">{item.title}</h3>
+                            <p className="text-sm text-gray-500 mb-2">{item.location}</p>
+                            <p className="text-sm text-gray-600 leading-relaxed">{item.desc}</p>
+                            {item.guide && (
+                              <div className="mt-3 bg-white p-3 rounded-lg border border-gray-100 text-sm text-gray-600">
+                                <p className="whitespace-pre-line">{item.guide.story?.replace(/\|/g, '\n')}</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* --- 分頁：工具 (Tools) --- */}
+          {activeTab === 'tools' && (
+            <div className="pt-10 px-5 animate-fade-in">
+              <h2 className="text-3xl font-serif font-bold mb-6 text-[#2C2C2C]">Travel Tools</h2>
+              
+              {/* 常用連結 */}
+              <div className="grid grid-cols-2 gap-4 mb-8">
+                <button onClick={() => window.open('https://vjw-lp.digital.go.jp/zh-hant/', '_blank')} className="bg-[#1A1A1A] text-white p-4 rounded-2xl text-left shadow-lg">
+                  <div className="mb-2"><LucideIcon name="qr-code" className="w-6 h-6"/></div>
+                  <div className="font-bold">Visit Japan Web</div>
+                  <div className="text-xs text-gray-400">入境審查</div>
+                </button>
+                <button onClick={() => window.open('https://voicetra.nict.go.jp/en/', '_blank')} className="bg-[#4F46E5] text-white p-4 rounded-2xl text-left shadow-lg">
+                  <div className="mb-2"><LucideIcon name="mic" className="w-6 h-6"/></div>
+                  <div className="font-bold">VoiceTra</div>
+                  <div className="text-xs text-indigo-200">語音翻譯</div>
+                </button>
+              </div>
+
+              {/* 票券夾 (v18 核心：保證有票) */}
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 mb-8 overflow-hidden">
+                <div className="p-4 border-b border-gray-50 flex justify-between items-center">
+                  <h3 className="font-bold text-gray-800 flex items-center"><LucideIcon name="ticket" className="w-4 h-4 mr-2 text-orange-500"/> My Tickets</h3>
+                  <label className="text-xs bg-gray-100 px-2 py-1 rounded cursor-pointer hover:bg-gray-200">
+                    <LucideIcon name="plus" className="w-3 h-3 inline mr-1"/>新增
+                    <input type="file" className="hidden" accept="image/*,application/pdf" onChange={handleFileUpload}/>
+                  </label>
+                </div>
+                {tripData.tools.tickets.map((ticket, idx) => (
+                  <div key={idx} onClick={() => setActiveTicket(ticket)} className="p-4 border-b border-gray-50 last:border-0 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors">
+                    <div className="flex items-center overflow-hidden">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-3 flex-shrink-0 ${ticket.type==='virtual'?'bg-purple-100 text-purple-600':'bg-orange-100 text-orange-600'}`}>
+                        <LucideIcon name={ticket.type==='virtual'?'qr-code':'image'} className="w-4 h-4"/>
+                      </div>
+                      <div className="truncate">
+                        <div className="font-bold text-sm text-gray-800 truncate">{ticket.name}</div>
+                        <div className="text-xs text-gray-400">{ticket.date}</div>
+                      </div>
+                    </div>
+                    <LucideIcon name="chevron-right" className="w-4 h-4 text-gray-300"/>
+                  </div>
+                ))}
+                {tripData.tools.tickets.length === 0 && <div className="p-8 text-center text-gray-400 text-sm">暫無票券</div>}
+              </div>
+
+              {/* 實用日語 (點擊放大) */}
+              <div className="mb-8">
+                <h3 className="font-bold text-gray-800 mb-3 flex items-center"><LucideIcon name="message-circle" className="w-4 h-4 mr-2 text-blue-500"/> 實用日語</h3>
+                <div className="space-y-2">
+                  {JAPANESE_PHRASES.map((cat, i) => (
+                    <details key={i} className="bg-white rounded-xl border border-gray-100 group">
+                      <summary className="p-4 flex justify-between items-center cursor-pointer font-bold text-gray-700">
+                        <div className="flex items-center"><LucideIcon name={cat.icon} className="w-4 h-4 mr-3 text-gray-400 group-open:text-blue-500"/> {cat.category}</div>
+                        <LucideIcon name="chevron-down" className="w-4 h-4 text-gray-300 group-open:rotate-180 transition-transform"/>
+                      </summary>
+                      <div className="px-4 pb-4 space-y-2">
+                        {cat.phrases.map((p, j) => (
+                          <div key={j} onClick={() => setActivePhrase(p)} className="p-3 bg-gray-50 rounded-lg cursor-pointer active:scale-95 transition-transform">
+                            <div className="text-lg font-bold text-gray-800">{p.jp}</div>
+                            <div className="text-xs text-gray-500 flex justify-between mt-1"><span>{p.zh}</span><span className="text-blue-500 font-bold">點擊放大</span></div>
+                          </div>
+                        ))}
+                      </div>
+                    </details>
+                  ))}
+                </div>
+              </div>
+
+              {/* 危險區域 (v17 安全升級) */}
+              <div className="pb-10">
+                <details>
+                  <summary className="text-center text-xs text-gray-300 py-4 cursor-pointer select-none hover:text-red-400 transition-colors">(進階) 危險區域：重置與除錯</summary>
+                  <div className="mx-4 p-4 bg-red-50 border border-red-100 rounded-xl text-center">
+                    <p className="text-xs text-red-600 font-bold mb-2">⚠️ 危險區域</p>
+                    <p className="text-[10px] text-red-400 mb-3">這將清除所有資料並恢復原廠設定。</p>
+                    <button onClick={handleForceReset} className="bg-red-500 text-white px-4 py-2 rounded-lg text-xs font-bold shadow-sm active:scale-95 transition-transform">確認重置 (Reset)</button>
+                  </div>
+                </details>
+                <div className="text-center text-[10px] text-gray-200 mt-2 font-mono">v{DATA_VERSION}</div>
+              </div>
+            </div>
+          )}
+
+          {/* --- Modal: 票券檢視器 (雙模) --- */}
+          {activeTicket && (
+            <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex flex-col items-center justify-center p-4 animate-fade-in" onClick={() => setActiveTicket(null)}>
+              <button className="absolute top-4 right-4 p-2 bg-white/10 rounded-full text-white"><LucideIcon name="x" className="w-6 h-6"/></button>
+              {activeTicket.type === 'virtual' ? (
+                <div className="bg-white w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl relative border-t-8 border-purple-500" onClick={e=>e.stopPropagation()}>
+                  <div className="p-6 text-center border-b border-dashed border-gray-200">
+                    <h3 className="text-xl font-bold text-gray-800">{activeTicket.name}</h3>
+                    <p className="text-sm text-gray-500 font-sans-eng">{activeTicket.date}</p>
+                  </div>
+                  <div className="p-6 space-y-4">
+                    <div className="flex justify-between">
+                      <div><p className="text-xs text-gray-400 uppercase">Time</p><p className="text-3xl font-bold font-sans-eng">{activeTicket.details.time}</p></div>
+                      <div className="text-right"><p className="text-xs text-gray-400 uppercase">Pax</p><p className="text-xl font-bold font-sans-eng">{activeTicket.details.pax}</p></div>
+                    </div>
+                    <div className="bg-gray-50 p-4 rounded-xl space-y-2">
+                      <div><p className="text-xs text-gray-400">Pick Up</p><p className="font-bold text-sm">{activeTicket.details.from}</p></div>
+                      <div className="w-full h-[1px] bg-gray-200"></div>
+                      <div><p className="text-xs text-gray-400">Drop Off</p><p className="font-bold text-sm">{activeTicket.details.to}</p></div>
+                    </div>
+                    <div className="text-center bg-gray-100 py-3 rounded-xl">
+                      <p className="text-xs text-gray-400 mb-1">Booking ID</p>
+                      <p className="text-2xl font-mono font-bold tracking-widest">{activeTicket.details.id}</p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="w-full max-w-sm h-[80vh] bg-white rounded-2xl overflow-hidden flex flex-col" onClick={e=>e.stopPropagation()}>
+                  <div className="flex-1 overflow-auto bg-gray-100 flex items-center justify-center p-2">
+                    {activeTicket.type.includes('pdf') ? (
+                      <iframe src={activeTicket.url} className="w-full h-full" title="PDF"></iframe>
+                    ) : (
+                      <img src={activeTicket.url} className="max-w-full max-h-full shadow-md rounded" alt="ticket"/>
+                    )}
+                  </div>
+                  <div className="p-4 bg-white border-t border-gray-100 flex justify-between items-center">
+                    <span className="text-sm font-bold truncate flex-1">{activeTicket.name}</span>
+                    <button onClick={() => { 
+                      if(confirm("刪除此票券？")) {
+                        const newData = {...tripData};
+                        newData.tools.tickets = newData.tools.tickets.filter(t => t !== activeTicket);
+                        updateData(newData); setActiveTicket(null);
+                      }
+                    }} className="text-red-500 p-2"><LucideIcon name="trash-2" className="w-5 h-5"/></button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* --- Modal: 日語大字卡 --- */}
+          {activePhrase && (
+            <div className="fixed inset-0 z-50 bg-black/95 flex flex-col items-center justify-center p-6 animate-fade-in" onClick={() => setActivePhrase(null)}>
+              <div className="w-full max-w-sm bg-white rounded-3xl p-8 text-center shadow-2xl relative" onClick={e=>e.stopPropagation()}>
+                <p className="text-xs text-gray-400 font-bold tracking-widest uppercase mb-6">Show this to staff</p>
+                <p className="text-4xl font-bold text-gray-900 mb-2 leading-tight">{activePhrase.jp}</p>
+                <p className="text-sm text-gray-400 font-sans-eng mb-6">{activePhrase.romaji}</p>
+                {activePhrase.note && <div className="bg-orange-50 text-orange-700 text-xs p-2 rounded mb-6 font-bold">{activePhrase.note}</div>}
+                <button onClick={() => {
+                  const u = new SpeechSynthesisUtterance(activePhrase.jp); u.lang='ja-JP'; u.rate=0.8; window.speechSynthesis.speak(u);
+                }} className="w-full py-3 bg-blue-500 text-white rounded-xl font-bold shadow-lg active:scale-95 transition-transform flex items-center justify-center">
+                  <LucideIcon name="volume-2" className="w-5 h-5 mr-2"/> 播放語音
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* 底部導航列 */}
+          <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white/95 backdrop-blur border-t border-gray-100 p-3 flex justify-around z-40">
+            <button onClick={() => setActiveTab('schedule')} className={`p-2 transition-transform active:scale-90 ${activeTab==='schedule'?'text-[#2C2C2C]':'text-gray-300'}`}><LucideIcon name="calendar-days" className="w-6 h-6"/></button>
+            <button onClick={() => setActiveTab('tools')} className={`p-2 transition-transform active:scale-90 ${activeTab==='tools'?'text-[#2C2C2C]':'text-gray-300'}`}><LucideIcon name="layout-grid" className="w-6 h-6"/></button>
+          </div>
+        </div>
+      );
+    };
+
+    const root = ReactDOM.createRoot(document.getElementById("root"));
+    root.render(<App />);
+  </script>
+</body>
+</html>
