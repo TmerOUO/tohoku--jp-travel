@@ -43,8 +43,8 @@
   <script type="text/babel">
     const { useState, useEffect, useRef } = React;
 
-    // 版本控制
-    const DATA_VERSION = "v18.0_TowadaTicketsAdded";
+    // --- 版本控制 ---
+    const DATA_VERSION = "v18.1_EditRestored";
 
     const firebaseConfig = {
       apiKey: "AIzaSyC2IjvPIILHl3ftIZ8Iw2pBDWoXbE8SKAw",
@@ -56,7 +56,7 @@
       measurementId: "G-8P7HE76T86"
     };
 
-    // --- 1. 預設行程資料 ---
+    // --- 預設行程資料 ---
     const INITIAL_DATA = {
       version: DATA_VERSION,
       schedule: [
@@ -68,22 +68,14 @@
         { date: "02/05 (四)", weather: { city: "奧入瀨", temp: "-", icon: "snowflake" }, items: [ { id: "s7", type: "stay", time: "15:00", title: "星野奧入瀨", location: "Hoshino Resorts", desc: "領取行李", tags: ["必住"] } ] }
       ],
       tools: { 
-        // 內建票券
         tickets: [
-          { 
-            name: "🚌 十和田湖接駁 (去程)", type: "virtual", date: "2026/02/06",
-            details: { id: "TOW-T119238569", time: "15:55", from: "奧入瀨溪流館公廁前", to: "休屋北停車場廁所前", pax: "4 Adult" }
-          },
-          { 
-            name: "🚌 十和田湖接駁 (回程)", type: "virtual", date: "2026/02/06",
-            details: { id: "TOW-T119238576", time: "20:20", from: "休屋北停車場廁所前", to: "奧入瀨溪流館", pax: "4 Adult" }
-          }
+          { name: "🚌 十和田湖接駁 (去程)", type: "virtual", date: "2026/02/06", details: { id: "TOW-T119238569", time: "15:55", from: "奧入瀨溪流館公廁前", to: "休屋北停車場廁所前", pax: "4 Adult" } },
+          { name: "🚌 十和田湖接駁 (回程)", type: "virtual", date: "2026/02/06", details: { id: "TOW-T119238576", time: "20:20", from: "休屋北停車場廁所前", to: "奧入瀨溪流館", pax: "4 Adult" } }
         ], 
         flights: [], reservations: [], stays: [] 
       }
     };
 
-    // --- 2. 實用日語 ---
     const JAPANESE_PHRASES = [
       { category: "餐廳 & 預約", icon: "calendar-check", phrases: [ { jp: "予約しています。", romaji: "Yoyaku shiteimasu", zh: "我有預約", note: "進店第一句話" }, { jp: "4人です。", romaji: "Yo-nin desu", zh: "我們有 4 個人", note: "" }, { jp: "お会計をお願いします。", romaji: "O-kaikei o onegaishimasu", zh: "麻煩結帳", note: "" } ] },
       { category: "萬能句型", icon: "sparkles", phrases: [ { jp: "______ はありますか？", romaji: "... wa arimasu ka?", zh: "請問有 ______ 嗎？", note: "👉 填空：廁所(Toire)、菜單(Menu)" }, { jp: "______ をください。", romaji: "... o kudasai", zh: "請給我 ______", note: "👉 填空：這個(Kore)、水(Omizu)" }, { jp: "______ はどこですか？", romaji: "... wa doko desu ka?", zh: "請問 ______ 在哪裡？", note: "👉 填空：車站(Eki)、這裡(Koko)" } ] },
@@ -108,12 +100,10 @@
       const [openPhraseCategory, setOpenPhraseCategory] = useState(null);
       const [activePhrase, setActivePhrase] = useState(null);
 
-      // --- 資料載入核心 ---
-      const BUILT_IN_TICKETS = INITIAL_DATA.tools.tickets;
-
+      // 資料載入 & 強制修復
       const loadAndMigrate = (data) => {
         if (!data.version || data.version !== DATA_VERSION) {
-          console.log("偵測到舊版本資料，執行強制升級...");
+          console.log("偵測到新版本，執行更新...");
           return INITIAL_DATA; 
         }
         // 確保票券不消失
@@ -121,7 +111,7 @@
         if (!newData.tools) newData.tools = INITIAL_DATA.tools;
         if (!newData.tools.tickets) newData.tools.tickets = [];
         const existingNames = newData.tools.tickets.map(t => t.name);
-        BUILT_IN_TICKETS.forEach(ticket => {
+        INITIAL_DATA.tools.tickets.forEach(ticket => {
           if (!existingNames.includes(ticket.name)) {
             newData.tools.tickets.push(ticket);
           }
@@ -161,12 +151,32 @@
         }
       };
 
-      const handleForceReset = () => {
-        if(!confirm("⚠️ 確定要重置為預設狀態？")) return;
-        localStorage.removeItem('trip_backup');
-        window.location.reload();
+      // 編輯功能 (v18.1 修復)
+      const handleEditField = (path, val, label) => {
+        const newVal = prompt(`修改 ${label}:`, val);
+        if (newVal === null) return;
+        const newData = JSON.parse(JSON.stringify(tripData));
+        const parts = path.split('.');
+        let current = newData;
+        for (let i = 0; i < parts.length - 1; i++) current = current[parts[i]];
+        current[parts[parts.length - 1]] = newVal;
+        updateData(newData);
       };
 
+      const handleDeleteItem = (dayIdx, itemIdx) => {
+        if(!confirm("刪除此行程？")) return;
+        const newData = JSON.parse(JSON.stringify(tripData));
+        newData.schedule[dayIdx].items.splice(itemIdx, 1);
+        updateData(newData);
+      };
+
+      const handleAddItem = (dayIdx) => {
+        const newData = JSON.parse(JSON.stringify(tripData));
+        newData.schedule[dayIdx].items.push({ id: Date.now().toString(), time: "00:00", title: "新行程", location: "地點", desc: "備註", type: "spot" });
+        updateData(newData);
+      };
+
+      // 票券處理
       const handleFileUpload = async (e) => {
         const file = e.target.files[0]; if(!file) return;
         let url = "";
@@ -199,29 +209,17 @@
         setActiveTicket(null); 
       };
 
-      // 編輯功能
-      const handleEditField = (path, val, label) => {
-        const newVal = prompt(`修改 ${label}:`, val);
-        if (newVal === null) return;
-        const newData = JSON.parse(JSON.stringify(tripData));
-        const parts = path.split('.');
-        let current = newData;
-        for (let i = 0; i < parts.length - 1; i++) current = current[parts[i]];
-        current[parts[parts.length - 1]] = newVal;
-        updateData(newData);
+      const handleForceReset = () => {
+        if(!confirm("⚠️ 確定要重置為預設狀態？")) return;
+        localStorage.removeItem('trip_backup');
+        window.location.reload();
       };
 
-      const handleDeleteItem = (dayIdx, itemIdx) => {
-        if(!confirm("刪除此行程？")) return;
-        const newData = JSON.parse(JSON.stringify(tripData));
-        newData.schedule[dayIdx].items.splice(itemIdx, 1);
-        updateData(newData);
-      };
-
-      const handleAddItem = (dayIdx) => {
-        const newData = JSON.parse(JSON.stringify(tripData));
-        newData.schedule[dayIdx].items.push({ id: Date.now().toString(), time: "00:00", title: "新行程", location: "地點", desc: "備註", type: "spot" });
-        updateData(newData);
+      const speakJapanese = (text) => {
+        if (!window.speechSynthesis) { alert("您的手機不支援語音功能"); return; }
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'ja-JP'; utterance.rate = 0.8; 
+        window.speechSynthesis.speak(utterance);
       };
 
       if (!tripData) return <div className="flex h-screen items-center justify-center text-gray-500">載入中...</div>;
@@ -246,7 +244,8 @@
                         <div key={i} className="flex gap-4 relative group">
                           <div className="w-12 text-right pt-1">
                             <span className="font-serif text-lg font-bold text-gray-800">{item.time}</span>
-                            {isEditMode && <button onClick={() => handleEditField(`schedule.${idx}.items.${i}.time`, item.time, '時間')} className="block ml-auto text-yellow-500"><LucideIcon name="pencil" className="w-3 h-3"/></button>}
+                            {/* 編輯按鈕 (v18.1) */}
+                            {isEditMode && <button onClick={() => handleEditField(`schedule.${idx}.items.${i}.time`, item.time, '時間')} className="block ml-auto text-yellow-500 mt-1"><LucideIcon name="pencil" className="w-3 h-3"/></button>}
                           </div>
                           <div className={`flex-1 border-l-2 ${style.color} pl-5 pb-4`}>
                             <div className="mb-1 flex items-center justify-between">
@@ -267,6 +266,10 @@
                             </p>
                             {item.guide && (
                               <div className="mt-3 bg-white p-3 rounded-lg border border-gray-100 text-sm text-gray-600">
+                                <div className="flex items-center mb-1">
+                                  <span className="text-xs font-bold text-gray-400">GUIDE NOTE</span>
+                                  {isEditMode && <button onClick={() => handleEditField(`schedule.${idx}.items.${i}.guide.story`, item.guide.story, '攻略')} className="ml-2 text-yellow-500"><LucideIcon name="pencil" className="w-3 h-3"/></button>}
+                                </div>
                                 <p className="whitespace-pre-line">{item.guide.story?.replace(/\|/g, '\n')}</p>
                               </div>
                             )}
@@ -349,7 +352,7 @@
                 </div>
               </div>
 
-              {/* 編輯模式開關 (已修復！) */}
+              {/* 編輯模式開關 (v18.1：按鈕回來了！) */}
               <div className="text-center mt-8 mb-8">
                 <button onClick={() => setIsEditMode(!isEditMode)} className={`px-4 py-2 rounded-full text-xs font-bold transition-colors ${isEditMode ? "bg-yellow-100 text-yellow-700" : "bg-gray-100 text-gray-400"}`}>
                   {isEditMode ? "完成編輯 (Done)" : "進入編輯模式 (Edit Mode)"}
