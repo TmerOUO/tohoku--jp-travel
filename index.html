@@ -76,47 +76,33 @@
       default: { color: "border-gray-300", text: "text-gray-400", bg: "bg-gray-50", label: "ACTIVITY", icon: "circle" }
     };
 
-    // --- 實用日語資料 (已更新內容) ---
+    // --- 實用日語資料 (v11.0 升級：導入萬能句型) ---
     const JAPANESE_PHRASES = [
       {
-        category: "迷路 & 交通 (Lost)",
-        icon: "map-pin",
+        category: "萬能句型 (Magic Patterns)",
+        icon: "sparkles",
         phrases: [
-          { jp: "道に迷いました。", romaji: "Michi ni mayoimashita", zh: "我迷路了" },
-          { jp: "駅はどこですか？", romaji: "Eki wa doko desu ka?", zh: "請問車站在哪裡？" },
-          // 移除「請畫地圖」，新增問路
-          { jp: "ここに行きたいです。", romaji: "Koko ni ikitai desu", zh: "我想去這裡 (指地圖)" }
+          { jp: "______ はありますか？", romaji: "... wa arimasu ka?", zh: "請問有 ______ 嗎？", note: "👉 填空：廁所(Toire)、收據(Reshiito)、這個(Kore)" },
+          { jp: "______ をください。", romaji: "... o kudasai", zh: "請給我 ______", note: "👉 填空：這個(Kore)、水(Omizu)、袋子(Fukuro)" },
+          { jp: "______ はどこですか？", romaji: "... wa doko desu ka?", zh: "請問 ______ 在哪裡？", note: "👉 填空：車站(Eki)、這裡(Koko)、便利商店(Konbini)" }
         ]
       },
       {
-        category: "預約 & 餐廳 (Dining)",
-        icon: "calendar-check",
-        phrases: [
-          { jp: "予約しています。", romaji: "Yoyaku shiteimasu", zh: "我有預約" },
-          { jp: "4人です。", romaji: "Yo-nin desu", zh: "我們有 4 個人" },
-          { jp: "お会計をお願いします。", romaji: "O-kaikei o onegaishimasu", zh: "麻煩結帳" },
-          { jp: "写真はいいですか？", romaji: "Shashin wa ii desu ka?", zh: "可以拍照嗎？" }
-        ]
-      },
-      {
-        category: "購物 (Shop)",
+        category: "購物 & 結帳 (Shopping)",
         icon: "shopping-bag",
         phrases: [
-          { jp: "袋をください。", romaji: "Fukuro o kudasai", zh: "請給我塑膠袋" },
-          // 新增：不需要收據
-          { jp: "レシートは要りません。", romaji: "Reshiito wa irimasen", zh: "不需要收據" },
-          { jp: "袋は要りません。", romaji: "Fukuro wa irimasen", zh: "不用袋子" },
-          { jp: "免税になりますか？", romaji: "Menzei ni narimasu ka?", zh: "可以免稅嗎？" }
+          { jp: "袋をください。", romaji: "Fukuro o kudasai", zh: "請給我塑膠袋", note: "" },
+          { jp: "レシートは要りません。", romaji: "Reshiito wa irimasen", zh: "不需要收據", note: "" },
+          { jp: "免税になりますか？", romaji: "Menzei ni narimasu ka?", zh: "可以免稅嗎？", note: "" }
         ]
       },
       {
         category: "急病 & 求救 (SOS)",
         icon: "ambulance",
         phrases: [
-          { jp: "具合が悪いです。", romaji: "Guai ga warui desu", zh: "我不舒服" },
-          { jp: "救急車を呼んでください！", romaji: "Kyuukyusha o yonde kudasai!", zh: "請叫救護車！" },
-          { jp: "病院はどこですか？", romaji: "Byouin wa doko desu ka?", zh: "醫院在哪裡？" },
-          { jp: "薬をください。", romaji: "Kusuri o kudasai", zh: "請給我藥" }
+          { jp: "具合が悪いです。", romaji: "Guai ga warui desu", zh: "我不舒服", note: "" },
+          { jp: "救急車を呼んでください！", romaji: "Kyuukyusha o yonde kudasai!", zh: "請叫救護車！", note: "" },
+          { jp: "薬をください。", romaji: "Kusuri o kudasai", zh: "請給我藥", note: "" }
         ]
       }
     ];
@@ -186,8 +172,6 @@
       const [activeTab, setActiveTab] = useState('schedule');
       const [isEditMode, setIsEditMode] = useState(false);
       const [openPhraseCategory, setOpenPhraseCategory] = useState(null);
-      
-      // 新增：控制大字卡 Modal 的狀態
       const [activePhrase, setActivePhrase] = useState(null);
 
       useEffect(() => {
@@ -222,16 +206,15 @@
         await updateDoc(doc(db, "trips", "main"), newData);
       };
 
-      // --- 語音合成功能 (Text-to-Speech) ---
       const speakJapanese = (text) => {
         if (!window.speechSynthesis) { alert("您的手機不支援語音功能"); return; }
         const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = 'ja-JP'; // 設定為日文
-        utterance.rate = 0.8; // 稍微放慢語速，比較清楚
+        utterance.lang = 'ja-JP'; 
+        utterance.rate = 0.8; 
         window.speechSynthesis.speak(utterance);
       };
 
-      const handleForceReset = async () => { if(!confirm("⚠️ 警告：重置資料庫？")) return; setLoading(true); if(window.firebaseModules){ const {getFirestore,doc,setDoc}=window.firebaseModules; await setDoc(doc(getFirestore(),"trips","main"), INITIAL_DATA); } window.location.reload(); };
+      const handleForceReset = async () => { if(!confirm("⚠️ 警告：這會將資料庫重置為程式碼中的預設值。確定嗎？")) return; setLoading(true); if(window.firebaseModules){ const {getFirestore,doc,setDoc}=window.firebaseModules; await setDoc(doc(getFirestore(),"trips","main"), INITIAL_DATA); } window.location.reload(); };
       const handleFileUpload = async (e) => { const file = e.target.files[0]; if (!file) return; setUploading(true); try { const { getStorage, ref, uploadBytes, getDownloadURL } = window.firebaseModules; const storage = getStorage(); const uniqueName = `${Date.now()}_${file.name}`; const storageRef = ref(storage, 'tickets/' + uniqueName); await uploadBytes(storageRef, file); const url = await getDownloadURL(storageRef); const newData = JSON.parse(JSON.stringify(tripData)); if(!newData.tools.tickets) newData.tools.tickets = []; newData.tools.tickets.push({ name: file.name, refName: uniqueName, url: url, type: file.type, date: new Date().toLocaleDateString() }); await updateCloud(newData); alert("✅ 上傳成功"); } catch (error) { alert(`❌ 失敗: ${error.message}`); } setUploading(false); };
       const handleDeleteTicket = async (i) => { if (!confirm("刪除？")) return; const newData = JSON.parse(JSON.stringify(tripData)); newData.tools.tickets.splice(i, 1); await updateCloud(newData); };
       const handleEditField = (path, val) => { const newData = JSON.parse(JSON.stringify(tripData)); const parts = path.split('.'); let current = newData; for (let i = 0; i < parts.length - 1; i++) { if (!current[parts[i]]) current[parts[i]] = {}; current = current[parts[i]]; } current[parts[parts.length - 1]] = val; updateCloud(newData); };
@@ -285,9 +268,22 @@
           <h2 className="text-3xl font-serif font-bold mb-8 text-[#2C2C2C]">Travel Tools</h2>
           <div className="bg-[#1A1A1A] text-white p-6 rounded-3xl shadow-2xl mb-8 relative overflow-hidden group"><div className="flex justify-between items-start mb-6 z-10 relative"><div><span className="bg-[#D95D7D] text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider shadow-lg">Must Have</span></div><div className="bg-white/10 p-2 rounded-full backdrop-blur-md"><i data-lucide="external-link" className="w-5 h-5"></i></div></div><div onClick={() => window.open('https://vjw-lp.digital.go.jp/zh-hant/', '_blank')} className="cursor-pointer z-10 relative"><h3 className="text-3xl font-serif mb-2">Visit Japan Web</h3><p className="text-gray-400 text-xs font-light">入境審查 & 海關申報 (請截圖 QR Code)</p></div><div className="absolute -bottom-10 -right-10 w-48 h-48 bg-white/5 rounded-full blur-3xl group-hover:bg-white/10 transition-all"></div></div>
           
+          {/* 新增：VoiceTra 外部工具 */}
+          <div className="bg-[#4F46E5] text-white p-6 rounded-3xl shadow-2xl mb-8 relative overflow-hidden group cursor-pointer" onClick={() => window.open('https://voicetra.nict.go.jp/en/', '_blank')}>
+             <div className="flex justify-between items-start mb-6 z-10 relative">
+               <div><span className="bg-white/20 text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider shadow-lg">External App</span></div>
+               <div className="bg-white/10 p-2 rounded-full backdrop-blur-md"><i data-lucide="mic" className="w-5 h-5"></i></div>
+             </div>
+             <div className="z-10 relative">
+               <h3 className="text-3xl font-serif mb-2">VoiceTra</h3>
+               <p className="text-indigo-200 text-xs font-light">日本官方語音翻譯神器，比 Google 翻譯更精準！</p>
+             </div>
+             <div className="absolute -bottom-10 -right-10 w-48 h-48 bg-indigo-500/50 rounded-full blur-3xl group-hover:bg-indigo-400/50 transition-all"></div>
+          </div>
+
           <div className="mb-8"><h3 className="text-[#8B2222] font-bold mb-4 flex items-center text-sm tracking-widest"><i data-lucide="shield-alert" className="w-4 h-4 mr-2"></i> 緊急聯絡 & 支援</h3><div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden"><div className="grid grid-cols-2 border-b border-gray-100"><div className="p-6 text-center border-r border-gray-100"><span className="text-xs text-red-400 block mb-1 tracking-widest font-bold">警察 (POLICE)</span><a href="tel:110" className="text-4xl font-serif text-[#9A2525] font-bold block hover:opacity-70">110</a></div><div className="p-6 text-center"><span className="text-xs text-red-400 block mb-1 tracking-widest font-bold">救護 / 火警</span><a href="tel:119" className="text-4xl font-serif text-[#9A2525] font-bold block hover:opacity-70">119</a></div></div><div className="p-6 flex justify-between items-center border-b border-gray-100"><div><h4 className="font-bold text-gray-800 text-lg leading-tight">訪日外國人<br/>醫療 & 急難熱線</h4><p className="text-[10px] text-gray-400 mt-2 uppercase tracking-wide">Japan Visitor Hotline (JNTO)</p><a href="tel:050-3816-2787" className="text-xl font-bold text-gray-600 mt-1 block tracking-wider">050-3816-2787</a><p className="text-[10px] text-gray-300 mt-1">* 24小時對應 (英/中/韓)</p></div><a href="tel:050-3816-2787" className="bg-[#2C2C2C] text-white p-4 rounded-full active:scale-90 transition-transform shadow-md"><i data-lucide="phone" className="w-6 h-6"></i></a></div><div className="p-5 bg-gray-50"><span className="bg-gray-200 text-gray-600 text-[10px] px-2 py-0.5 rounded mb-2 inline-block font-bold">外交部</span><span className="text-sm font-bold text-gray-700 ml-2">台北駐日經濟文化代表處 (東京)</span><div className="mt-3 space-y-2 pl-1"><p className="text-sm text-gray-500 flex items-center"><span className="w-24 text-xs opacity-70">上班時間：</span>03-3280-7811</p><p className="text-sm text-[#9A2525] font-bold flex items-center"><span className="w-24 text-xs opacity-70 text-red-400">急難救助：</span>080-1009-7179</p></div></div></div></div>
 
-          {/* 實用日語 (v10.0 更新：點擊開啟大字卡 Focus Mode) */}
+          {/* 實用日語 (萬能句型版) */}
           <div className="mb-8">
             <h3 className="text-[#2C2C2C] font-bold mb-4 flex items-center text-sm tracking-widest"><i data-lucide="message-circle" className="w-4 h-4 mr-2"></i> 實用日語 (點擊放大 & 聽)</h3>
             <div className="grid grid-cols-1 gap-3">
@@ -317,7 +313,7 @@
         </div>
       );
 
-      // --- 大字卡 Modal (Focus Mode) ---
+      // --- 大字卡 Modal (支援顯示 Note) ---
       const PhraseModal = () => {
         if (!activePhrase) return null;
         return (
@@ -325,18 +321,13 @@
              <div className="w-full max-w-sm bg-white rounded-3xl p-8 text-center shadow-2xl relative" onClick={(e) => e.stopPropagation()}>
                 <button onClick={() => setActivePhrase(null)} className="absolute top-4 right-4 text-gray-300 hover:text-gray-500"><i data-lucide="x" className="w-6 h-6"></i></button>
                 <p className="text-sm text-gray-400 mb-6 font-bold tracking-widest uppercase">Show this to staff</p>
+                <p className="text-4xl font-bold text-gray-900 mb-2 leading-tight break-words">{activePhrase.jp}</p>
+                <p className="text-sm text-gray-400 font-sans-eng mb-4">{activePhrase.romaji}</p>
                 
-                {/* 巨大日文顯示區 */}
-                <p className="text-4xl font-bold text-gray-900 mb-4 leading-tight break-words">{activePhrase.jp}</p>
-                <p className="text-sm text-gray-400 font-sans-eng mb-8">{activePhrase.romaji}</p>
+                {/* 顯示填空提示 (Note) */}
+                {activePhrase.note && <div className="bg-orange-50 text-orange-700 text-xs p-2 rounded-lg mb-6 border border-orange-100 font-bold">{activePhrase.note}</div>}
                 
-                {/* 播放按鈕 */}
-                <button 
-                  onClick={() => speakJapanese(activePhrase.jp)} 
-                  className="w-full py-4 bg-orange-500 text-white rounded-xl font-bold text-lg shadow-lg active:scale-95 transition-transform flex items-center justify-center"
-                >
-                  <i data-lucide="volume-2" className="w-6 h-6 mr-2"></i> 播放語音 (Play)
-                </button>
+                <button onClick={() => speakJapanese(activePhrase.jp)} className="w-full py-4 bg-orange-500 text-white rounded-xl font-bold text-lg shadow-lg active:scale-95 transition-transform flex items-center justify-center"><i data-lucide="volume-2" className="w-6 h-6 mr-2"></i> 播放語音 (Play)</button>
                 <p className="text-xs text-gray-300 mt-4">{activePhrase.zh}</p>
              </div>
           </div>
