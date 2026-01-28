@@ -111,26 +111,40 @@
       tools: { tickets: [], flights: [], reservations: [], stays: [] }
     };
 
-    // --- 關鍵修復：隔離圖標渲染 (Wrapper) ---
-    // 這裡使用 span 來包裹圖標，讓 React 只管理 span，Lucide 在 span 裡面畫圖
-    // 這樣 React 就不會因為找不到元素而崩潰了
+    // --- 圖標隔離層 (Safe Icon Wrapper) ---
     const LucideIcon = ({ name, className }) => {
       const ref = useRef(null);
-      
       useEffect(() => {
         if (window.lucide && ref.current) {
-          // 清空舊的內容
           ref.current.innerHTML = `<i data-lucide="${name}" class="${className}"></i>`;
-          // 呼叫 Lucide 渲染
-          window.lucide.createIcons({
-            root: ref.current,
-            nameAttr: 'data-lucide',
-            attrs: { class: className }
-          });
+          window.lucide.createIcons({ root: ref.current, nameAttr: 'data-lucide', attrs: { class: className } });
         }
       }, [name, className]);
-
       return <span ref={ref} style={{display: 'inline-flex'}}></span>;
+    };
+
+    // --- 圖片壓縮工具 ---
+    const compressImage = (file) => {
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (event) => {
+          const img = new Image();
+          img.src = event.target.result;
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            // 設定最大寬度，避免檔案過大
+            const maxWidth = 800;
+            const scaleSize = maxWidth / img.width;
+            canvas.width = maxWidth;
+            canvas.height = img.height * scaleSize;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            // 壓縮為 JPEG，品質 0.7
+            resolve(canvas.toDataURL('image/jpeg', 0.7));
+          };
+        };
+      });
     };
 
     const WeatherWidget = ({ city }) => {
@@ -157,7 +171,6 @@
         fetchWeather();
       }, [city]);
       const getWeatherIcon = (code) => { if (code <= 3) return "sun"; if (code <= 48) return "cloud-fog"; if (code <= 67) return "cloud-rain"; if (code <= 86) return "snowflake"; return "cloud"; };
-      
       if (loading) return <div className="h-24 flex items-center justify-center text-gray-400 text-xs">載入氣象中...</div>;
       return (
         <div className="mb-8 mt-2">
@@ -181,46 +194,105 @@
       const [openPhraseCategory, setOpenPhraseCategory] = useState(null);
       const [activePhrase, setActivePhrase] = useState(null);
 
+      // --- 智慧圖標掃描 ---
+      useEffect(() => {
+        const timer = setTimeout(() => { if (window.lucide) window.lucide.createIcons(); }, 50);
+        return () => clearTimeout(timer);
+      }, [activeTab, tripData, openPhraseCategory, activePhrase]);
+
+      // --- 資料載入：優先讀取 Firebase，失敗則讀取 LocalStorage ---
       useEffect(() => {
         const initData = async () => {
           try {
-            if (!window.firebaseModules) { setTripData(INITIAL_DATA); setLoading(false); return; }
-            const { initializeApp, getFirestore, doc, setDoc, onSnapshot } = window.firebaseModules;
-            const app = initializeApp(firebaseConfig);
-            const db = getFirestore(app);
-            const docRef = doc(db, "trips", "main");
-            onSnapshot(docRef, (snap) => {
-              if (snap.exists()) {
-                const data = snap.data();
-                if (!data.schedule) data.schedule = INITIAL_DATA.schedule;
-                if (!data.tools) data.tools = INITIAL_DATA.tools;
-                if (!data.tools.tickets) data.tools.tickets = [];
-                setTripData(data);
-              } else { setTripData(INITIAL_DATA); setDoc(docRef, INITIAL_DATA); }
-              setLoading(false);
-            }, (err) => { setTripData(INITIAL_DATA); setLoading(false); });
-          } catch (e) { setTripData(INITIAL_DATA); setLoading(false); }
+            // 嘗試從 Firebase 讀取
+            if (window.firebaseModules) { 
+              const { initializeApp, getFirestore, doc, onSnapshot } = window.firebaseModules;
+              const app = initializeApp(firebaseConfig);
+              const db = getFirestore(app);
+              onSnapshot(doc(db, "trips", "main"), (snap) => {
+                if (snap.exists()) {
+                  setTripData(snap.data());
+                } else {
+                  // 如果 Firebase 空的，讀取本地
+                  loadFromLocal();
+                }
+                setLoading(false);
+              }, (err) => { 
+                console.warn("Firebase 連線失敗，切換至離線模式", err);
+                loadFromLocal(); // 權限錯誤時，切換本地
+                setLoading(false); 
+              });
+            } else { loadFromLocal(); setLoading(false); }
+          } catch (e) { loadFromLocal(); setLoading(false); }
         };
         initData();
       }, []);
 
+      const loadFromLocal = () => {
+        const saved = localStorage.getItem('trip_backup');
+        if (saved) { setTripData(JSON.parse(saved)); }
+        else { setTripData(INITIAL_DATA); }
+      };
+
+      // --- 雙重儲存：同時存雲端和本地 ---
       const updateCloud = async (newData) => {
-        if (!window.firebaseModules) { setTripData(newData); return; }
-        const { getFirestore, doc, updateDoc } = window.firebaseModules;
-        const db = getFirestore();
-        await updateDoc(doc(db, "trips", "main"), newData);
+        setTripData(newData);
+        // 1. 存本地 (保證成功)
+        localStorage.setItem('trip_backup', JSON.stringify(newData));
+        
+        // 2. 嘗試存雲端 (若有權限)
+        if (window.firebaseModules) { 
+          try {
+            const { getFirestore, doc, updateDoc } = window.firebaseModules;
+            await updateDoc(doc(getFirestore(), "trips", "main"), newData);
+          } catch(e) { console.log("雲端同步跳過 (唯讀模式)"); }
+        }
       };
 
       const speakJapanese = (text) => {
         if (!window.speechSynthesis) { alert("您的手機不支援語音功能"); return; }
         const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = 'ja-JP'; 
-        utterance.rate = 0.8; 
+        utterance.lang = 'ja-JP'; utterance.rate = 0.8; 
         window.speechSynthesis.speak(utterance);
       };
 
-      const handleForceReset = async () => { if(!confirm("⚠️ 警告：這會將資料庫重置為程式碼中的預設值。確定嗎？")) return; setLoading(true); if(window.firebaseModules){ const {getFirestore,doc,setDoc}=window.firebaseModules; await setDoc(doc(getFirestore(),"trips","main"), INITIAL_DATA); } window.location.reload(); };
-      const handleFileUpload = async (e) => { const file = e.target.files[0]; if (!file) return; setUploading(true); try { const { getStorage, ref, uploadBytes, getDownloadURL } = window.firebaseModules; const storage = getStorage(); const uniqueName = `${Date.now()}_${file.name}`; const storageRef = ref(storage, 'tickets/' + uniqueName); await uploadBytes(storageRef, file); const url = await getDownloadURL(storageRef); const newData = JSON.parse(JSON.stringify(tripData)); if(!newData.tools.tickets) newData.tools.tickets = []; newData.tools.tickets.push({ name: file.name, refName: uniqueName, url: url, type: file.type, date: new Date().toLocaleDateString() }); await updateCloud(newData); alert("✅ 上傳成功"); } catch (error) { alert(`❌ 失敗: ${error.message}`); } setUploading(false); };
+      const handleForceReset = async () => { 
+        if(!confirm("⚠️ 警告：重置將清除所有自訂資料（包含票券）。確定？")) return; 
+        setLoading(true); 
+        localStorage.removeItem('trip_backup'); // 清除本地
+        // 嘗試清除雲端
+        if(window.firebaseModules){ try { const {getFirestore,doc,setDoc}=window.firebaseModules; await setDoc(doc(getFirestore(),"trips","main"), INITIAL_DATA); } catch(e){} } 
+        window.location.reload(); 
+      };
+
+      // --- 關鍵修改：使用本地壓縮上傳 (v13.0) ---
+      const handleFileUpload = async (e) => { 
+        const file = e.target.files[0]; 
+        if (!file) return; 
+        setUploading(true); 
+        try { 
+          // 1. 壓縮圖片
+          const compressedDataUrl = await compressImage(file);
+          
+          // 2. 存入資料結構
+          const newData = JSON.parse(JSON.stringify(tripData)); 
+          if(!newData.tools.tickets) newData.tools.tickets = []; 
+          
+          newData.tools.tickets.push({ 
+            name: file.name, 
+            url: compressedDataUrl, // 直接存 Base64
+            type: file.type, 
+            date: new Date().toLocaleDateString() 
+          }); 
+          
+          await updateCloud(newData); 
+          alert("✅ 票券已存入手機！"); 
+        } catch (error) { 
+          alert(`❌ 失敗: ${error.message}`); 
+        } 
+        setUploading(false); 
+      };
+
       const handleDeleteTicket = async (i) => { if (!confirm("刪除？")) return; const newData = JSON.parse(JSON.stringify(tripData)); newData.tools.tickets.splice(i, 1); await updateCloud(newData); };
       const handleEditField = (path, val) => { const newData = JSON.parse(JSON.stringify(tripData)); const parts = path.split('.'); let current = newData; for (let i = 0; i < parts.length - 1; i++) { if (!current[parts[i]]) current[parts[i]] = {}; current = current[parts[i]]; } current[parts[parts.length - 1]] = val; updateCloud(newData); };
       const handleAddItem = (d) => { const newData = JSON.parse(JSON.stringify(tripData)); newData.schedule[d].items.push({ id: Date.now().toString(), time: "00:00", title: "New Item", location: "Location", desc: "...", tags: [], type: "spot" }); updateCloud(newData); };
