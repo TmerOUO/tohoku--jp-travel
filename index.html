@@ -59,19 +59,102 @@
       measurementId: "G-8P7HE76T86"
     };
 
+    // --- 城市座標對照表 (用於抓天氣) ---
+    const CITY_COORDS = {
+      "東京": { lat: 35.6895, lon: 139.6917 },
+      "成田": { lat: 35.7719, lon: 140.3928 },
+      "銀山": { lat: 38.5705, lon: 140.3996 }, // 尾花澤市
+      "大石田": { lat: 38.5956, lon: 140.3732 },
+      "秋田": { lat: 39.7167, lon: 140.1032 },
+      "田澤湖": { lat: 39.6994, lon: 140.7335 }, // 仙北市
+      "乳頭": { lat: 39.7995, lon: 140.7692 },
+      "奧入瀨": { lat: 40.5847, lon: 140.9631 }, // 十和田
+      "青森": { lat: 40.8244, lon: 140.7400 }
+    };
+
     const INITIAL_DATA = {
       schedule: [
-        { date: "01/31 (六)", weather: { city: "東京", temp: "6°C", icon: "cloud-sun" }, items: [ { id: "s0", type: "transport", time: "06:55", title: "起飛：高雄 -> 成田", location: "小港機場", desc: "BR/JL 航班", tags: ["集合"], guide: { tips: ["VJW截圖備用"] } } ] },
-        { date: "02/01 (日)", weather: { city: "東京", temp: "8°C", icon: "sun" }, items: [ { id: "s1", type: "food", time: "12:00", title: "燒肉 29 Terrace", location: "Yakiniku 29 Terrace", desc: "必吃高評價燒肉", tags: ["已訂位"], guide: { mustEat: ["厚切牛舌"], reservation: { code: "書瑜" } } } ] },
-        { date: "02/02 (一)", weather: { city: "銀山", temp: "-2°C", icon: "snowflake" }, items: [ { id: "t1", type: "transport", time: "07:18", title: "新幹線 -> 大石田", location: "Ueno Station", desc: "山形新幹線", tags: ["JR Pass"] }, { id: "s3", type: "stay", time: "15:00", title: "銀山溫泉 古山閣", location: "Ginzan Onsen", desc: "尾款付現", cashAlert: 123800 } ] },
-        { date: "02/03 (二)", weather: { city: "秋田", temp: "-3°C", icon: "snowflake" }, items: [ { id: "t3", type: "transport", time: "09:40", title: "銀山 -> 田澤湖", location: "Ginzan Onsen", desc: "大遷徙轉乘", tags: ["¥4,820"] }, { id: "s4", type: "stay", time: "15:00", title: "田澤湖民宿", location: "Tazawako", desc: "米棒鍋體驗", tags: ["一泊二食"] } ] },
-        { date: "02/04 (三)", weather: { city: "乳頭", temp: "-5°C", icon: "snowflake" }, items: [ { id: "s6", type: "stay", time: "15:00", title: "乳頭溫泉 鶴之湯", location: "Tsurunoyu Onsen", desc: "秘湯混浴", cashAlert: 69520 } ] },
-        { date: "02/05 (四)", weather: { city: "奧入瀨", temp: "-4°C", icon: "snowflake" }, items: [ { id: "s7", type: "stay", time: "15:00", title: "星野奧入瀨", location: "Hoshino Resorts", desc: "領取行李", tags: ["必住"] } ] }
+        { date: "01/31 (六)", weather: { city: "東京", temp: "-", icon: "cloud-sun" }, items: [ { id: "s0", type: "transport", time: "06:55", title: "起飛：高雄 -> 成田", location: "小港機場", desc: "BR/JL 航班", tags: ["集合"], guide: { tips: ["VJW截圖備用"] } }, { id: "s01", type: "stay", time: "19:00", title: "APA Hotel Ueno", location: "APA Hotel Ueno Ekimae", desc: "全員東京集合", tags: ["住宿"] } ] },
+        { date: "02/01 (日)", weather: { city: "東京", temp: "-", icon: "sun" }, items: [ { id: "s1", type: "food", time: "12:00", title: "燒肉 29 Terrace", location: "Yakiniku 29 Terrace", desc: "必吃高評價燒肉", tags: ["已訂位"], guide: { mustEat: ["厚切牛舌"], reservation: { code: "書瑜" } } }, { id: "s1b", type: "stay", time: "22:00", title: "APA Hotel Ueno", location: "APA Hotel Ueno Ekimae", desc: "續住", tags: ["住宿"] } ] },
+        { date: "02/02 (一)", weather: { city: "銀山", temp: "-", icon: "snowflake" }, items: [ { id: "t1", type: "transport", time: "07:18", title: "新幹線 -> 大石田", location: "Ueno Station", desc: "山形新幹線", tags: ["JR Pass"] }, { id: "s3", type: "stay", time: "15:00", title: "銀山溫泉 古山閣", location: "Ginzan Onsen", desc: "尾款付現", cashAlert: 123800 } ] },
+        { date: "02/03 (二)", weather: { city: "田澤湖", temp: "-", icon: "snowflake" }, items: [ { id: "t3", type: "transport", time: "09:40", title: "銀山 -> 田澤湖", location: "Ginzan Onsen", desc: "大遷徙轉乘", tags: ["¥4,820"] }, { id: "s4", type: "stay", time: "15:00", title: "田澤湖民宿", location: "Tazawako", desc: "米棒鍋體驗", tags: ["一泊二食"] } ] },
+        { date: "02/04 (三)", weather: { city: "乳頭", temp: "-", icon: "snowflake" }, items: [ { id: "s6", type: "stay", time: "15:00", title: "乳頭溫泉 鶴之湯", location: "Tsurunoyu Onsen", desc: "秘湯混浴", cashAlert: 69520 } ] },
+        { date: "02/05 (四)", weather: { city: "奧入瀨", temp: "-", icon: "snowflake" }, items: [ { id: "s7", type: "stay", time: "15:00", title: "星野奧入瀨", location: "Hoshino Resorts", desc: "領取行李", tags: ["必住"] } ] }
       ],
       logistics: { shipping: { from: "APA Hotel Ueno", to: "星野奧入瀨", date: "02/02", address: "〒034-0398 青森県十和田市...", tel: "+81-50-3134-8096" } },
-      tools: {
-        tickets: [], flights: [], reservations: [], contacts: [], stays: []
-      }
+      tools: { tickets: [], flights: [], reservations: [], stays: [] }
+    };
+
+    // --- 天氣小工具組件 (Live Weather) ---
+    const WeatherWidget = ({ city }) => {
+      const [forecast, setForecast] = useState([]);
+      const [current, setCurrent] = useState(null);
+      const [loading, setLoading] = useState(true);
+
+      useEffect(() => {
+        const fetchWeather = async () => {
+          setLoading(true);
+          const coords = CITY_COORDS[city] || CITY_COORDS["東京"]; // 預設東京
+          try {
+            // 使用 Open-Meteo 免費 API
+            const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${coords.lat}&longitude=${coords.lon}&current_weather=true&hourly=temperature_2m,weathercode&timezone=auto&forecast_days=1`);
+            const data = await res.json();
+            
+            setCurrent(data.current_weather);
+            
+            // 整理未來 24 小時預報
+            const next24h = data.hourly.time.slice(new Date().getHours(), new Date().getHours() + 24).map((t, i) => ({
+              time: t.split('T')[1],
+              temp: data.hourly.temperature_2m[i + new Date().getHours()],
+              code: data.hourly.weathercode[i + new Date().getHours()]
+            }));
+            setForecast(next24h);
+          } catch (e) {
+            console.error("Weather fetch failed", e);
+          }
+          setLoading(false);
+        };
+        fetchWeather();
+      }, [city]);
+
+      // WMO 天氣代碼轉圖示
+      const getWeatherIcon = (code) => {
+        if (code <= 3) return "sun"; // 晴/多雲
+        if (code <= 48) return "cloud-fog"; // 霧
+        if (code <= 67) return "cloud-rain"; // 雨
+        if (code <= 86) return "snowflake"; // 雪
+        return "cloud";
+      };
+
+      if (loading) return <div className="h-32 flex items-center justify-center text-gray-400 text-xs">載入氣象資訊...</div>;
+
+      return (
+        <div className="mb-6">
+          <div className="flex items-end justify-between px-2 mb-3">
+             <div>
+               <h3 className="text-2xl font-serif text-[#2C2C2C] font-bold">{city}</h3>
+               <p className="text-xs text-gray-400">未來 24 小時預報</p>
+             </div>
+             {current && (
+               <div className="text-right">
+                 <span className="text-3xl font-bold text-[#2C2C2C]">{current.temperature}°</span>
+                 <i data-lucide={getWeatherIcon(current.weathercode)} className="inline ml-2 w-6 h-6 text-orange-400"></i>
+               </div>
+             )}
+          </div>
+          
+          {/* 橫向捲動區 */}
+          <div className="flex overflow-x-auto no-scrollbar space-x-4 pb-2 px-2">
+            {forecast.map((f, i) => (
+              <div key={i} className="flex-shrink-0 flex flex-col items-center justify-center min-w-[3.5rem] bg-white rounded-xl p-2 shadow-sm border border-gray-100">
+                <span className="text-[10px] text-gray-400 mb-1">{f.time}</span>
+                <i data-lucide={getWeatherIcon(f.code)} className="w-5 h-5 text-gray-600 mb-1"></i>
+                <span className="text-sm font-bold text-[#2C2C2C]">{f.temp}°</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
     };
 
     const App = () => {
@@ -93,23 +176,17 @@
             onSnapshot(docRef, (snap) => {
               if (snap.exists()) {
                 const data = snap.data();
-                // [資料結構完整性修復]
                 if (!data.schedule) data.schedule = INITIAL_DATA.schedule;
                 if (!data.tools) data.tools = INITIAL_DATA.tools;
                 if (!data.tools.tickets) data.tools.tickets = [];
                 setTripData(data);
               } else {
-                // [關鍵修正]：如果資料庫是空的，先寫入本地狀態，避免畫面崩潰
                 setTripData(INITIAL_DATA);
                 setDoc(docRef, INITIAL_DATA);
               }
               setLoading(false);
-            }, (err) => {
-              console.error(err);
-              setTripData(INITIAL_DATA); // 失敗就用預設資料
-              setLoading(false);
-            });
-          } catch (e) { console.error(e); setTripData(INITIAL_DATA); setLoading(false); }
+            }, (err) => { setTripData(INITIAL_DATA); setLoading(false); });
+          } catch (e) { setTripData(INITIAL_DATA); setLoading(false); }
         };
         initData();
         const interval = setInterval(() => { if(window.lucide) window.lucide.createIcons(); }, 1000);
@@ -123,7 +200,6 @@
         await updateDoc(doc(db, "trips", "main"), newData);
       };
 
-      // --- 強制重置功能 ---
       const handleForceReset = async () => {
         if(!confirm("⚠️ 警告：這將會清除所有雲端修改，恢復成預設行程。確定嗎？")) return;
         setLoading(true);
@@ -135,7 +211,6 @@
         window.location.reload();
       };
 
-      // --- 上傳邏輯 ---
       const handleFileUpload = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -154,27 +229,17 @@
           await updateCloud(newData);
           alert("✅ 上傳成功！");
         } catch (error) {
-          alert(`❌ 上傳失敗: ${error.message}\n請確認 Firebase Storage 設定。`);
+          alert(`❌ 上傳失敗: ${error.message}`);
         }
         setUploading(false);
       };
 
       const handleDeleteTicket = async (index) => {
-        if (!confirm("刪除此票券？")) return;
-        setUploading(true);
-        try {
-           const ticket = tripData.tools.tickets[index];
-           const newData = JSON.parse(JSON.stringify(tripData));
-           if (window.firebaseModules && ticket.refName) {
-             const { getStorage, ref, deleteObject } = window.firebaseModules;
-             const storage = getStorage();
-             const fileRef = ref(storage, 'tickets/' + ticket.refName);
-             await deleteObject(fileRef).catch(() => {});
-           }
-           newData.tools.tickets.splice(index, 1);
-           await updateCloud(newData);
-        } catch(e) {}
-        setUploading(false);
+        if (!confirm("確定要刪除這張票券嗎？")) return;
+        const ticket = tripData.tools.tickets[index];
+        const newData = JSON.parse(JSON.stringify(tripData));
+        newData.tools.tickets.splice(index, 1);
+        await updateCloud(newData);
       };
 
       const handleEditField = (path, value) => {
@@ -199,7 +264,7 @@
       const handleAddDate = () => {
         const newDate = prompt("輸入新日期"); if(!newDate) return;
         const newData = JSON.parse(JSON.stringify(tripData));
-        newData.schedule.push({ date: newDate, weather: {city:"-", temp:"-", icon:"sun"}, items: []});
+        newData.schedule.push({ date: newDate, weather: {city:"東京", temp:"-", icon:"sun"}, items: []});
         updateCloud(newData);
       };
 
@@ -211,17 +276,8 @@
       };
       const Tag = ({ text, color = "gray" }) => <span className={`text-xs px-2 py-1 rounded-md border mr-1 inline-block bg-gray-100`}>{text}</span>;
 
-      // --- [關鍵防護]：防止資料未載入時渲染導致崩潰 ---
       if (loading) return <div className="flex items-center justify-center h-screen bg-[#F7F4EB] text-[#2C2C2C]"><i data-lucide="loader-2" className="animate-spin mr-2"></i> 載入中...</div>;
-      
-      // 如果不幸資料是空的，顯示救援按鈕
-      if (!tripData || !tripData.schedule) return (
-        <div className="flex flex-col items-center justify-center h-screen bg-[#F7F4EB] p-4 text-center">
-           <h2 className="text-xl font-bold mb-2">資料讀取異常</h2>
-           <p className="mb-4 text-gray-500">無法讀取行程資料，可能是網路問題或資料庫是空的。</p>
-           <button onClick={handleForceReset} className="bg-red-500 text-white px-6 py-3 rounded-full shadow-lg font-bold">🛠️ 初始化資料庫 (修復)</button>
-        </div>
-      );
+      if (!tripData || !tripData.schedule) return <div className="p-10 text-center"><button onClick={handleForceReset} className="bg-red-500 text-white p-3 rounded">資料異常，點此修復</button></div>;
 
       const ScheduleItem = ({ item, dayIdx, itemIdx }) => {
         const [isOpen, setIsOpen] = useState(false);
@@ -256,14 +312,31 @@
       const ScheduleView = () => {
         const [selectedIndex, setSelectedIndex] = useState(0);
         const currentDay = tripData.schedule[selectedIndex] || tripData.schedule[0];
+        
+        // 自動抓取當日的「住宿」行程
+        const stayItem = currentDay.items.find(item => item.type === 'stay' || (item.tags && item.tags.includes('住宿')));
+
         return (
           <div className="min-h-screen pb-24">
             <div className="fixed top-0 left-0 right-0 z-40 bg-[#F7F4EB]/95 backdrop-blur-sm shadow-sm pt-3 pb-3 flex items-center">
               <div className="flex overflow-x-auto no-scrollbar px-4 space-x-3 flex-1 items-center">{tripData.schedule.map((d, i) => (<button key={i} onClick={() => setSelectedIndex(i)} className={`flex-shrink-0 px-4 py-2 rounded-full text-sm transition-all whitespace-nowrap ${i === selectedIndex ? "bg-[#2C2C2C] text-white font-bold shadow-md scale-105" : "bg-white text-gray-500 border"}`}>{d.date}</button>))}{isEditMode && <button onClick={handleAddDate} className="flex-shrink-0 px-3 py-2 bg-green-500 text-white rounded-full shadow-sm"><i data-lucide="plus" className="w-4 h-4"></i></button>}</div>
               <button onClick={() => setIsEditMode(!isEditMode)} className={`mr-4 p-2 rounded-full shadow-md transition-colors ${isEditMode ? "bg-yellow-400 animate-pulse text-black" : "bg-white text-gray-400"}`}><i data-lucide="edit-3" className="w-5 h-5"></i></button>
             </div>
+            
             <div className="pt-24 px-4">
-              <div className="flex items-center justify-center mb-6 bg-white rounded-xl py-2 px-4 shadow-sm w-fit mx-auto border border-orange-100"><i data-lucide={currentDay.weather?.icon || 'sun'} className="w-5 h-5 mr-2 text-orange-400"></i><span className="text-[#2C2C2C] font-bold mr-2">{currentDay.weather?.city}</span></div>
+              {/* 天氣小工具 */}
+              <WeatherWidget city={currentDay.weather.city} />
+
+              {/* 置頂住宿資訊 (模仿您的截圖設計) */}
+              {stayItem && (
+                 <div className="mb-6 pl-4 border-l-4 border-[#D95D7D] py-1">
+                   <p className="text-xs text-gray-400 mb-1 tracking-wider">住宿資訊</p>
+                   <h3 className="text-xl font-serif font-bold text-[#2C2C2C] leading-tight">{stayItem.title}</h3>
+                   <p className="text-xs text-gray-500 mt-1">{stayItem.location}</p>
+                 </div>
+              )}
+
+              {/* 行程列表 */}
               {currentDay.items.map((item, idx) => <ScheduleItem key={item.id} item={item} dayIdx={selectedIndex} itemIdx={idx} />)}
               {isEditMode && (<button onClick={() => handleAddItem(selectedIndex)} className="w-full py-4 border-2 border-dashed border-gray-300 text-gray-400 rounded-2xl flex items-center justify-center hover:bg-gray-50 transition-colors"><i data-lucide="plus-circle" className="w-6 h-6 mr-2"></i> 新增行程</button>)}
             </div>
@@ -274,6 +347,7 @@
       const ToolsView = () => (
         <div className="pb-24 px-4 pt-8">
           <h2 className="text-2xl font-serif font-bold mb-6 text-[#2C2C2C]">萬能工具箱</h2>
+          {/* 票券夾 */}
           <div className="bg-[#1A1A1A] text-white p-5 rounded-2xl shadow-lg mb-6 relative overflow-hidden">
              <h3 className="font-bold mb-4 flex items-center"><i data-lucide="ticket" className="w-5 h-5 mr-2 text-yellow-400"></i>活動票券夾</h3>
              <div className="space-y-3 mb-4">
@@ -300,7 +374,29 @@
                </label>
              )}
           </div>
-          <button onClick={() => window.open('https://vjw-lp.digital.go.jp/zh-hant/', '_blank')} className="w-full bg-blue-600 text-white p-4 rounded-2xl shadow-md mb-6 flex items-center justify-between active:scale-95 transition-transform"><div className="flex items-center"><i data-lucide="qr-code" className="w-6 h-6 mr-3"></i><div className="text-left"><p className="font-bold text-lg">Visit Japan Web</p></div></div><i data-lucide="external-link" className="w-5 h-5"></i></button>
+
+          {/* Visit Japan Web */}
+          <button onClick={() => window.open('https://vjw-lp.digital.go.jp/zh-hant/', '_blank')} className="w-full bg-[#1A1A1A] text-white p-6 rounded-2xl shadow-lg mb-8 relative overflow-hidden active:scale-95 transition-transform text-left">
+             <span className="bg-[#D95D7D] text-white text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider mb-2 inline-block shadow-sm">Must Have</span>
+             <div className="flex justify-between items-center z-10 relative">
+               <div><h3 className="text-2xl font-serif mb-1">Visit Japan Web</h3><p className="text-gray-400 text-xs">入境審查 & 海關申報</p></div>
+               <div className="bg-white/10 p-3 rounded-full"><i data-lucide="external-link" className="w-6 h-6"></i></div>
+             </div>
+             <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-10 -mt-10 blur-2xl"></div>
+          </button>
+
+          {/* 緊急聯絡 */}
+          <div className="mb-8">
+            <h3 className="text-[#8B2222] font-bold mb-4 flex items-center text-sm tracking-widest"><i data-lucide="shield-alert" className="w-4 h-4 mr-2"></i> 緊急聯絡 & 支援</h3>
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+               <div className="grid grid-cols-2 border-b border-gray-100">
+                  <div className="p-6 text-center border-r border-gray-100"><span className="text-xs text-red-400 block mb-1 tracking-widest font-bold">警察</span><a href="tel:110" className="text-4xl font-serif text-[#9A2525] font-bold">110</a></div>
+                  <div className="p-6 text-center"><span className="text-xs text-red-400 block mb-1 tracking-widest font-bold">救護/火警</span><a href="tel:119" className="text-4xl font-serif text-[#9A2525] font-bold">119</a></div>
+               </div>
+               <div className="p-6 flex justify-between items-center border-b border-gray-100"><div><h4 className="font-bold text-gray-800 text-lg">訪日醫療熱線</h4><p className="text-[10px] text-gray-400 mt-1">Japan Visitor Hotline</p><a href="tel:050-3816-2787" className="text-xl font-bold text-gray-600 mt-1 block">050-3816-2787</a></div><a href="tel:050-3816-2787" className="bg-[#2C2C2C] text-white p-4 rounded-full"><i data-lucide="phone" className="w-6 h-6"></i></a></div>
+               <div className="p-5 bg-gray-50"><span className="bg-gray-200 text-gray-600 text-[10px] px-2 py-0.5 rounded mb-2 inline-block font-bold">外交部</span><span className="text-sm font-bold text-gray-700 ml-2">台北駐日經濟文化代表處</span><div className="mt-3 space-y-2 pl-1"><p className="text-sm text-gray-500">上班：03-3280-7811</p><p className="text-sm text-[#9A2525] font-bold">急難：080-1009-7179</p></div></div>
+            </div>
+          </div>
           {isEditMode && <div className="mt-8 text-center border-t pt-4"><button onClick={handleForceReset} className="text-xs text-red-400 underline">資料庫異常？點此強制重置</button></div>}
         </div>
       );
