@@ -14,7 +14,6 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
     import { getFirestore, doc, getDoc, setDoc, onSnapshot, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-    // 新增：引入 Storage 模組
     import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
     
     window.firebaseModules = { 
@@ -42,7 +41,7 @@
   <script type="text/babel">
     const { useState, useEffect, useRef } = React;
 
-    // --- Firebase Config ---
+    // --- Firebase Config (請填入您的金鑰) ---
     const firebaseConfig = {
       apiKey: "AIzaSyC2IjvPIILHl3ftIZ8Iw2pBDWoXbE8SKAw",
       authDomain: "tohoku-travel-app.firebaseapp.com",
@@ -65,7 +64,7 @@
       ],
       logistics: { shipping: { from: "APA Hotel Ueno", to: "星野奧入瀨", date: "02/02", address: "〒034-0398 青森県十和田市...", tel: "+81-50-3134-8096" } },
       tools: {
-        tickets: [], // 新增：票券存放區 { name, url, type }
+        tickets: [], 
         flights: [ { code: "KHH -> NRT", time: "01/31 06:55", carrier: "BR/JL" }, { code: "SDJ -> TPE", time: "02/08 17:25", carrier: "Tiger" } ],
         reservations: [ { place: "燒肉 29 Terrace", time: "2/1 12:00", name: "書瑜" } ],
         contacts: [ { name: "日本警察", tel: "110" }, { name: "日本救護", tel: "119" } ],
@@ -76,7 +75,7 @@
     const App = () => {
       const [tripData, setTripData] = useState(null);
       const [loading, setLoading] = useState(true);
-      const [uploading, setUploading] = useState(false); // 上傳狀態
+      const [uploading, setUploading] = useState(false);
       const [activeTab, setActiveTab] = useState('schedule');
       const [isEditMode, setIsEditMode] = useState(false);
 
@@ -94,8 +93,13 @@
             onSnapshot(docRef, (snap) => {
               if (snap.exists()) {
                 const data = snap.data();
-                // 確保 tools.tickets 存在 (舊資料相容)
+                // [防崩潰修復]：確保資料結構完整
+                if (!data.tools) data.tools = {};
                 if (!data.tools.tickets) data.tools.tickets = [];
+                if (!data.tools.flights) data.tools.flights = [];
+                if (!data.tools.reservations) data.tools.reservations = [];
+                if (!data.tools.contacts) data.tools.contacts = [];
+                if (!data.tools.stays) data.tools.stays = [];
                 setTripData(data);
               } else {
                 setDoc(docRef, INITIAL_DATA);
@@ -109,7 +113,6 @@
         return () => clearInterval(interval);
       }, []);
 
-      // --- 通用雲端更新 ---
       const updateCloud = async (newData) => {
         if (!window.firebaseModules) { setTripData(newData); return; }
         const { getFirestore, doc, updateDoc } = window.firebaseModules;
@@ -117,7 +120,6 @@
         await updateDoc(doc(db, "trips", "main"), newData);
       };
 
-      // --- 檔案上傳邏輯 ---
       const handleFileUpload = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -127,56 +129,41 @@
         try {
           const { getStorage, ref, uploadBytes, getDownloadURL } = window.firebaseModules;
           const storage = getStorage();
-          // 檔名加上時間戳記避免重複
           const uniqueName = `${Date.now()}_${file.name}`;
           const storageRef = ref(storage, 'tickets/' + uniqueName);
-          
-          // 1. 上傳到 Storage
           await uploadBytes(storageRef, file);
           const url = await getDownloadURL(storageRef);
           
-          // 2. 更新 Firestore 資料庫
           const newData = JSON.parse(JSON.stringify(tripData));
-          newData.tools.tickets.push({
-            name: file.name, // 顯示原始檔名
-            refName: uniqueName, // 儲存真實路徑(刪除用)
-            url: url,
-            type: file.type,
-            date: new Date().toLocaleDateString()
-          });
+          if(!newData.tools.tickets) newData.tools.tickets = [];
+          newData.tools.tickets.push({ name: file.name, refName: uniqueName, url: url, type: file.type, date: new Date().toLocaleDateString() });
           await updateCloud(newData);
-          alert("上傳成功！大家的手機都看得到囉 🎉");
+          alert("上傳成功！");
         } catch (error) {
           console.error("Upload failed", error);
-          alert("上傳失敗，請檢查 Firebase Storage 是否已開啟？");
+          alert("上傳失敗：請檢查 Firebase Console > Storage 是否已開啟？(Storage Bucket 設定)");
         }
         setUploading(false);
       };
 
-      // --- 刪除檔案邏輯 ---
       const handleDeleteTicket = async (index) => {
         if (!confirm("確定要刪除這張票券嗎？")) return;
-        setUploading(true); // 借用 loading 狀態
+        setUploading(true);
         try {
            const ticket = tripData.tools.tickets[index];
            const newData = JSON.parse(JSON.stringify(tripData));
-           
-           // 1. 嘗試刪除 Storage 檔案 (如果是雲端模式)
            if (window.firebaseModules && ticket.refName) {
              const { getStorage, ref, deleteObject } = window.firebaseModules;
              const storage = getStorage();
              const fileRef = ref(storage, 'tickets/' + ticket.refName);
-             await deleteObject(fileRef).catch(e => console.warn("Storage delete skipped", e));
+             await deleteObject(fileRef).catch(e => console.warn("Delete skipped", e));
            }
-
-           // 2. 刪除 Firestore 資料
            newData.tools.tickets.splice(index, 1);
            await updateCloud(newData);
         } catch(e) { console.error(e); }
         setUploading(false);
       };
 
-      // --- 編輯功能 ---
       const handleEditField = (path, value) => {
         const newData = JSON.parse(JSON.stringify(tripData));
         const parts = path.split('.');
@@ -221,7 +208,6 @@
         return <span className={`text-xs px-2 py-1 rounded-md border mr-1 inline-block ${colors[color] || colors.gray}`}>{text}</span>;
       };
 
-      // ... ScheduleView & LogisticsView (保持 v4.1 邏輯) ...
       const ScheduleItem = ({ item, dayIdx, itemIdx }) => {
         const [isOpen, setIsOpen] = useState(false);
         const basePath = `schedule.${dayIdx}.items.${itemIdx}`;
@@ -275,16 +261,11 @@
         </div>
       );
 
-      // --- New ToolsView with Ticket Upload ---
       const ToolsView = () => (
         <div className="pb-24 px-4 pt-8">
           <h2 className="text-2xl font-serif font-bold mb-6 text-[#2C2C2C]">萬能工具箱</h2>
-          
-          {/* 票券夾 (新功能) */}
           <div className="bg-[#1A1A1A] text-white p-5 rounded-2xl shadow-lg mb-6 relative overflow-hidden">
              <h3 className="font-bold mb-4 flex items-center"><i data-lucide="ticket" className="w-5 h-5 mr-2 text-yellow-400"></i>活動票券夾</h3>
-             
-             {/* 票券列表 */}
              <div className="space-y-3 mb-4">
                {tripData.tools.tickets && tripData.tools.tickets.length > 0 ? (
                  tripData.tools.tickets.map((t, i) => (
@@ -300,8 +281,6 @@
                  <p className="text-xs text-gray-500 text-center py-2">尚未上傳任何票券</p>
                )}
              </div>
-
-             {/* 上傳按鈕 */}
              {uploading ? (
                <div className="flex items-center justify-center text-sm py-2 text-yellow-400"><i data-lucide="loader-2" className="w-4 h-4 mr-2 spin"></i> 上傳中...</div>
              ) : (
@@ -311,13 +290,9 @@
                </label>
              )}
           </div>
-
-          {/* VJW */}
           <button onClick={() => window.open('https://vjw-lp.digital.go.jp/zh-hant/', '_blank')} className="w-full bg-blue-600 text-white p-4 rounded-2xl shadow-md mb-6 flex items-center justify-between active:scale-95 transition-transform">
              <div className="flex items-center"><i data-lucide="qr-code" className="w-6 h-6 mr-3"></i><div className="text-left"><p className="font-bold text-lg">Visit Japan Web</p></div></div><i data-lucide="external-link" className="w-5 h-5"></i>
           </button>
-
-          {/* 其他列表... */}
           <div className="bg-white rounded-2xl p-5 mb-6 shadow-sm border border-gray-100"><h3 className="font-bold text-[#2C2C2C] mb-3 flex items-center"><i data-lucide="file-text" className="w-4 h-4 mr-2 text-blue-500"></i> 預約代碼</h3><div className="space-y-3">{tripData.tools.reservations.map((r, i) => (<div key={i} className="flex justify-between items-center text-sm border-b border-gray-100 pb-2"><div><span className="font-bold text-gray-700 block">{r.place}</span><span className="text-xs text-gray-400">{r.time}</span></div><div className="text-right"><span className="bg-blue-50 text-blue-700 px-2 py-1 rounded font-mono font-bold">{r.name || r.note}</span></div></div>))}</div></div>
           <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100"><h3 className="font-bold text-[#2C2C2C] mb-3 flex items-center"><i data-lucide="home" className="w-4 h-4 mr-2 text-indigo-500"></i> 住宿</h3>{tripData.tools.stays.map((s, i) => (<div key={i} className="flex justify-between text-sm border-b border-gray-100 pb-2"><span className="text-gray-700">{s.name}</span><span className={s.cash ? "text-red-500 font-bold" : "text-gray-500"}>¥{s.price.toLocaleString()}</span></div>))}</div>
         </div>
