@@ -57,6 +57,10 @@
     
     .spin { animation: spin 1s linear infinite; }
     @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+    /* v15.3 新增：隱藏 details 預設的三角形 */
+    details > summary { list-style: none; }
+    details > summary::-webkit-details-marker { display: none; }
   </style>
 </head>
 <body>
@@ -98,7 +102,6 @@
       { category: "急病 & 求救 (SOS)", icon: "ambulance", phrases: [ { jp: "具合が悪いです。", romaji: "Guai ga warui desu", zh: "我不舒服", note: "" }, { jp: "救急車を呼んでください！", romaji: "Kyuukyusha o yonde kudasai!", zh: "請叫救護車！", note: "" }, { jp: "薬をください。", romaji: "Kusuri o kudasai", zh: "請給我藥", note: "" } ] }
     ];
 
-    // --- 內建的數位票券資料 ---
     const BUILT_IN_TICKETS = [
       { 
         name: "🚌 十和田湖接駁 (去程)", 
@@ -141,7 +144,6 @@
       return <span ref={ref} style={{display: 'inline-flex'}}></span>;
     };
 
-    // --- 圖片壓縮 ---
     const compressImage = (file) => {
       return new Promise((resolve) => {
         const reader = new FileReader();
@@ -217,13 +219,10 @@
         return () => clearTimeout(timer);
       }, [activeTab, tripData, openPhraseCategory, activePhrase, activeTicket]);
 
-      // --- v15.2: 智慧資料修復邏輯 ---
       const repairData = (data) => {
         const newData = JSON.parse(JSON.stringify(data));
         if (!newData.tools) newData.tools = INITIAL_DATA.tools;
         if (!newData.tools.tickets) newData.tools.tickets = [];
-        
-        // 檢查是否缺少內建票券，若缺少則自動補上
         const existingNames = newData.tools.tickets.map(t => t.name);
         BUILT_IN_TICKETS.forEach(ticket => {
           if (!existingNames.includes(ticket.name)) {
@@ -241,10 +240,8 @@
               const app = initializeApp(firebaseConfig);
               const db = getFirestore(app);
               onSnapshot(doc(db, "trips", "main"), (snap) => {
-                if (snap.exists()) { 
-                  // 載入雲端資料並執行修復
-                  setTripData(repairData(snap.data())); 
-                } else { loadFromLocal(); }
+                if (snap.exists()) { setTripData(repairData(snap.data())); } 
+                else { loadFromLocal(); }
                 setLoading(false);
               }, (err) => { loadFromLocal(); setLoading(false); });
             } else { loadFromLocal(); setLoading(false); }
@@ -255,12 +252,8 @@
 
       const loadFromLocal = () => {
         const saved = localStorage.getItem('trip_backup');
-        if (saved) { 
-          // 載入本地資料並執行修復
-          setTripData(repairData(JSON.parse(saved))); 
-        } else { 
-          setTripData(INITIAL_DATA); 
-        }
+        if (saved) { setTripData(repairData(JSON.parse(saved))); } 
+        else { setTripData(INITIAL_DATA); }
       };
 
       const updateCloud = async (newData) => {
@@ -429,13 +422,25 @@
              <label className="mt-4 flex items-center justify-center w-full py-3 bg-gray-50 hover:bg-gray-100 rounded-xl cursor-pointer text-xs font-bold text-gray-500 transition-all"><LucideIcon name="upload" className="w-3 h-3 mr-2" /> Upload Ticket<input type="file" accept="application/pdf,image/*" className="hidden" onChange={handleFileUpload} /></label>
           </div>
           
-          <div className="text-center pb-8 mt-8"><button onClick={() => setIsEditMode(!isEditMode)} className={`text-xs ${isEditMode ? "text-yellow-500 font-bold" : "text-gray-300"}`}>{isEditMode ? "Done Editing" : "Edit Mode"}</button></div>
-          {isEditMode && <div className="mt-4 text-center"><button onClick={handleForceReset} className="text-xs text-red-400 underline">資料庫異常？點此強制重置</button></div>}
+          {/* v15.3: 摺疊式危險區域，防止誤觸 */}
+          <div className="mt-8 border-t border-gray-200 pt-6 pb-20">
+            <details className="group">
+              <summary className="list-none text-center text-xs text-gray-300 cursor-pointer hover:text-red-400 transition-colors">
+                 (進階) 重置與除錯
+              </summary>
+              <div className="mt-4 p-4 bg-red-50 rounded-xl border border-red-100 text-center mx-4">
+                 <p className="text-xs text-red-600 font-bold mb-2">⚠️ 危險區域</p>
+                 <p className="text-[10px] text-red-400 mb-4">這將刪除所有票券與行程修改紀錄。</p>
+                 <button onClick={handleForceReset} className="px-4 py-2 bg-red-500 text-white text-xs font-bold rounded-lg shadow-sm active:scale-95 transition-transform">確認重置 (Force Reset)</button>
+              </div>
+            </details>
+          </div>
         </div>
       );
 
       const TicketModal = () => {
         if (!activeTicket) return null;
+        
         const isPdf = activeTicket.type === "application/pdf";
         const isVirtual = activeTicket.type === "virtual";
 
