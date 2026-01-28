@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>東北大遷徙 - 智慧導遊</title>
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+    
+    // 將 Firebase 變數掛載到全域，讓下方的 Babel 腳本可以使用
+    window.firebaseModules = { initializeApp, getFirestore, collection, getDocs };
+  </script>
+
+  <style>
+    /* 禪意字體設定 */
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;700&family=Zen+Maru+Gothic:wght@400;700&display=swap');
+    body { background-color: #F7F4EB; font-family: 'Zen Maru Gothic', sans-serif; }
+    .font-serif { font-family: 'Noto Serif TC', serif; }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  </style>
+</head>
+<body>
+  
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+    const { 
+      MapPin, Utensils, Train, Calendar, Truck, AlertCircle, 
+      CloudSun, Info, Plane, Wallet, Home, User, Navigation 
+    } = lucide.icons;
+
+    // --- 在此填入 Firebase Config ---
+    const firebaseConfig = {
+      // 請將您的金鑰貼在這裡，如果沒有填寫會顯示範例資料
+      apiKey: "AIzaSyC2IjvPIILHl3ftIZ8Iw2pBDWoXbE8SKAw",
+      authDomain: "tohoku-travel-app.firebaseapp.com",
+      projectId: "tohoku-travel-app",
+      storageBucket: "tohoku-travel-app.firebasestorage.app",
+      messagingSenderId: "674159226780",
+      appId: "1:674159226780:web:92dda0de23fb328114e259",
+      measurementId: "G-8P7HE76T86"
+    };
+
+    // 初始化 Firebase (如果金鑰沒填，會自動略過)
+    let db = null;
+    try {
+      if (window.firebaseModules && firebaseConfig.apiKey !== "YOUR_API_KEY") {
+        const { initializeApp, getFirestore } = window.firebaseModules;
+        const app = initializeApp(firebaseConfig);
+        db = getFirestore(app);
+        console.log("Firebase 連線成功！");
+      } else {
+        console.log("使用靜態範例資料模式");
+      }
+    } catch (e) {
+      console.log("Firebase 初始化跳過");
+    }
+
+    // --- 靜態行程數據 (來自您的 PDF) ---
+    const TRIP_DATA = {
+      schedule: [
+        {
+          date: "02/01 (日)",
+          weather: { city: "東京", temp: "8°C", icon: "晴" },
+          items: [
+            { id: "s1", type: "food", time: "12:00", title: "燒肉 29 Terrace", location: "新宿御苑店", desc: "書瑜已訂位。東京必吃的高評價燒肉，建議午間套餐CP值高。", tags: ["必吃美食", "已訂位"] },
+            { id: "s2", type: "spot", time: "21:00", title: "Memento Mori", location: "虎之門Hills", desc: "高空景觀酒吧，享受東京夜景。", tags: ["微醺之夜"] }
+          ]
+        },
+        {
+          date: "02/02 (一)",
+          weather: { city: "山形", temp: "-2°C", icon: "雪" },
+          items: [
+            { id: "t1", type: "transport", time: "07:18 - 10:29", title: "新幹線移動", location: "上野站 -> 大石田站", desc: "山形新幹線，車程約 3 小時 11 分。", tags: ["JR Pass"] },
+            { id: "t2", type: "transport", time: "13:30", title: "古山閣接駁車", location: "JR 大石田站", desc: "注意！一人限持一件 24 吋行李上車。", tags: ["重要接駁", "行李限制"] },
+            { id: "s3", type: "stay", time: "15:00", title: "銀山溫泉 古山閣", location: "山形県尾花沢市大字銀山新畑423", desc: "大正浪漫的極致。需準備現金支付尾款。", cashAlert: 123800, guide: "【導遊說故事】銀山溫泉保留了百年前大正時代的木造建築，夜晚煤氣燈亮起時，與雪景交織成神隱少女般的夢幻場景。" }
+          ]
+        },
+        {
+          date: "02/03 (二)",
+          weather: { city: "秋田", temp: "-3°C", icon: "大雪" },
+          items: [
+            { id: "t3", type: "transport", time: "09:40 - 14:04", title: "銀山 -> 田澤湖 (大遷徙)", location: "古山閣 -> 田澤湖", desc: "最複雜的一段：大石田(10:31) -> 新庄 -> 院內 -> 大曲 -> 田澤湖(14:04)。", tags: ["轉乘 3 回", "車資 ¥4,820"] },
+            { id: "s4", type: "stay", time: "15:00", title: "田澤湖民宿 Farmstay", location: "田澤湖", desc: "體驗道地秋田農家生活。", tags: ["一泊二食"] }
+          ]
+        }
+      ],
+      logistics: {
+        shipping: { from: "APA Hotel Ueno", to: "奧入瀨溪流飯店 (星野)", date: "02/02 早上", address: "〒034-0398 青森県十和田市大字奥瀬字栃久保231", tel: "+81-(0)50-3134-8096", note: "因為銀山接駁車限制，大行李需直接寄往星野。" }
+      },
+      tools: {
+        flights: [
+          { code: "KHH -> NRT", time: "01/31 06:55", carrier: "BR/JL" },
+          { code: "SDJ -> TPE", time: "02/08 17:25", carrier: "Tiger" }
+        ],
+        stays: [
+          { name: "古山閣", price: 30950, cash: true },
+          { name: "鶴之湯", price: 17380, cash: true },
+          { name: "星野奧入瀨", price: 33100, cash: false }
+        ]
+      }
+    };
+
+    // --- UI 組件 ---
+    const ZenCard = ({ children, className = "" }) => (
+      <div className={`bg-[#F9F9F9] rounded-2xl p-5 mb-4 shadow-[4px_4px_0px_#E0E5D5] border border-stone-100 ${className}`}>
+        {children}
+      </div>
+    );
+
+    const Tag = ({ text, type }) => {
+      const styles = {
+        alert: "bg-red-100 text-red-700 font-bold border-red-200",
+        food: "bg-orange-100 text-orange-800 border-orange-200",
+        transport: "bg-blue-50 text-blue-700 border-blue-100",
+        guide: "bg-[#E0E5D5] text-[#4A5D23] border-[#D4CEC3]"
+      };
+      const style = styles[type] || "bg-gray-100 text-gray-600";
+      return <span className={`text-xs px-2 py-1 rounded-md border mr-2 mb-1 inline-block ${style}`}>{text}</span>;
+    };
+
+    const NavBtn = ({ location }) => (
+      <button 
+        onClick={(e) => { e.stopPropagation(); window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`, '_blank'); }}
+        className="mt-3 flex items-center justify-center w-full py-2 bg-[#2C2C2C] text-white text-xs rounded-xl active:scale-95 transition-transform"
+      >
+        <i data-lucide="navigation" className="w-4 h-4 mr-2"></i> 開啟 Google Maps 導航
+      </button>
+    );
+
+    // --- 主程式 Views ---
+    const ScheduleView = () => (
+      <div className="pb-24 px-4 pt-4">
+        {TRIP_DATA.schedule.map((day, idx) => (
+          <div key={idx} className="mb-8">
+            <div className="flex items-center justify-between mb-4 px-2">
+              <h2 className="text-xl font-serif font-bold text-[#2C2C2C]">{day.date}</h2>
+              <div className="flex items-center text-sm text-gray-500 bg-white px-3 py-1 rounded-full shadow-sm">
+                <i data-lucide="cloud-sun" className="w-4 h-4 mr-2 text-orange-400"></i>
+                <span>{day.weather.city} {day.weather.temp}</span>
+              </div>
+            </div>
+            {day.items.map((item) => (
+              <ZenCard key={item.id} className="relative">
+                <div className="flex justify-between items-start mb-2">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-sm font-mono text-gray-500 font-bold">{item.time}</span>
+                  </div>
+                  {item.cashAlert && <Tag type="alert" text={`準備現金 ¥${item.cashAlert.toLocaleString()}`} />}
+                </div>
+                <h3 className="text-lg font-bold text-[#2C2C2C] mb-1">{item.title}</h3>
+                <p className="text-sm text-gray-600 mb-2 leading-relaxed">{item.desc}</p>
+                <div className="flex flex-wrap">
+                  {item.tags?.map(t => <Tag key={t} text={t} type={item.type === 'food' ? 'food' : 'transport'} />)}
+                </div>
+                {item.guide && (
+                  <div className="mt-3 p-3 bg-[#F7F4EB] rounded-xl text-xs text-[#5C5C5C] leading-5 border border-[#E0E5D5]">
+                    <div className="flex items-center mb-1 font-bold text-[#4A5D23]">
+                      <i data-lucide="info" className="w-3 h-3 mr-1"></i> 導遊筆記
+                    </div>
+                    {item.guide}
+                  </div>
+                )}
+                <NavBtn location={item.location} />
+              </ZenCard>
+            ))}
+          </div>
+        ))}
+      </div>
+    );
+
+    const LogisticsView = () => (
+      <div className="pb-24 px-4 pt-6">
+        <h2 className="text-2xl font-serif font-bold mb-6 text-[#2C2C2C]">大遷徙物流</h2>
+        <ZenCard className="border-l-4 border-l-orange-400">
+          <div className="flex items-center mb-4 text-orange-600">
+            <i data-lucide="alert-circle" className="w-5 h-5 mr-2"></i>
+            <h3 className="font-bold">2/2 行李限制警告</h3>
+          </div>
+          <p className="text-sm text-gray-600 mb-2">銀山溫泉接駁車空間有限，每人僅限一件 24 吋行李。</p>
+          <Tag type="alert" text="大型行李必須寄出" />
+        </ZenCard>
+        <div className="relative bg-white rounded-2xl p-6 shadow-md border-2 border-[#2C2C2C] text-[#2C2C2C]">
+          <div className="absolute top-0 left-0 w-full h-2 bg-[#FFD700]"></div>
+          <div className="flex justify-between items-center mb-4 border-b pb-2 border-dashed border-gray-300">
+            <span className="font-bold text-lg"><i data-lucide="truck" className="inline w-5 h-5 mr-2"></i>黑貓宅急便</span>
+            <span className="text-xs text-gray-500">{TRIP_DATA.logistics.shipping.date}</span>
+          </div>
+          <div className="space-y-4">
+            <div>
+              <label className="text-xs text-gray-400 block uppercase">寄件 (From)</label>
+              <p className="font-bold">{TRIP_DATA.logistics.shipping.from}</p>
+            </div>
+            <div className="flex justify-center text-gray-300">⬇</div>
+            <div>
+              <label className="text-xs text-gray-400 block uppercase">收件 (To)</label>
+              <p className="font-bold text-lg">{TRIP_DATA.logistics.shipping.to}</p>
+              <p className="text-sm mt-1 bg-gray-100 p-2 rounded select-all">{TRIP_DATA.logistics.shipping.address}</p>
+              <p className="text-sm mt-1 text-blue-600 select-all">{TRIP_DATA.logistics.shipping.tel}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+
+    const ToolsView = () => {
+      const totalJPY = TRIP_DATA.tools.stays.reduce((acc, curr) => acc + curr.price, 0);
+      const totalTWD = Math.round(totalJPY * 0.22);
+      return (
+        <div className="pb-24 px-4 pt-6">
+          <h2 className="text-2xl font-serif font-bold mb-6 text-[#2C2C2C]">旅人工具箱</h2>
+          <div className="mb-6">
+            <h3 className="text-sm font-bold text-gray-500 mb-3 ml-1">FLIGHTS</h3>
+            {TRIP_DATA.tools.flights.map((f, i) => (
+              <div key={i} className="bg-white p-4 rounded-xl mb-3 shadow-sm flex justify-between items-center border-l-4 border-blue-500">
+                 <div><p className="text-xs text-gray-400">BOARDING PASS</p><p className="font-bold text-lg">{f.code}</p></div>
+                 <div className="text-right"><i data-lucide="plane" className="inline w-4 h-4 text-blue-500 mb-1"></i><p className="text-sm font-mono">{f.time}</p></div>
+              </div>
+            ))}
+          </div>
+          <ZenCard>
+            <div className="flex items-center mb-4 text-[#4A5D23]">
+              <i data-lucide="wallet" className="w-5 h-5 mr-2"></i><h3 className="font-bold">住宿預算概估 (每人)</h3>
+            </div>
+            <div className="space-y-2">
+              {TRIP_DATA.tools.stays.map((s, i) => (
+                <div key={i} className="flex justify-between text-sm border-b border-gray-100 pb-1">
+                  <span>{s.name}</span>
+                  <span className={s.cash ? "text-red-500 font-bold" : "text-gray-600"}>¥{s.price.toLocaleString()} {s.cash && "(現)"}</span>
+                </div>
+              ))}
+              <div className="pt-3 mt-2 border-t border-gray-200 flex justify-between items-end">
+                <span className="text-gray-500 text-sm">總計 (TWD)</span>
+                <span className="text-2xl font-bold text-[#2C2C2C]">${totalTWD.toLocaleString()}</span>
+              </div>
+              <p className="text-xs text-gray-400 text-right">以匯率 0.22 計算</p>
+            </div>
+          </ZenCard>
+        </div>
+      );
+    };
+
+    const App = () => {
+      const [activeTab, setActiveTab] = useState('schedule');
+      useEffect(() => { lucide.createIcons(); }, [activeTab]); // 確保圖標正確載入
+
+      return (
+        <div className="max-w-md mx-auto min-h-screen relative shadow-2xl overflow-hidden bg-[#F7F4EB]">
+          <div className="h-full overflow-y-auto no-scrollbar">
+            {activeTab === 'schedule' && <ScheduleView />}
+            {activeTab === 'logistics' && <LogisticsView />}
+            {activeTab === 'tools' && <ToolsView />}
+          </div>
+          <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white/90 backdrop-blur-md border-t border-gray-200 p-2 pb-5 flex justify-around items-center z-50">
+            <button onClick={() => setActiveTab('schedule')} className={`flex flex-col items-center p-2 transition-all ${activeTab === 'schedule' ? 'text-[#2C2C2C] scale-105' : 'text-gray-400'}`}>
+              <i data-lucide="calendar" className="w-6 h-6"></i><span className="text-[10px] mt-1 font-bold">行程</span>
+            </button>
+            <button onClick={() => setActiveTab('logistics')} className={`flex flex-col items-center p-2 transition-all ${activeTab === 'logistics' ? 'text-[#2C2C2C] scale-105' : 'text-gray-400'}`}>
+              <i data-lucide="truck" className="w-6 h-6"></i><span className="text-[10px] mt-1 font-bold">物流</span>
+            </button>
+            <button onClick={() => setActiveTab('tools')} className={`flex flex-col items-center p-2 transition-all ${activeTab === 'tools' ? 'text-[#2C2C2C] scale-105' : 'text-gray-400'}`}>
+              <i data-lucide="wallet" className="w-6 h-6"></i><span className="text-[10px] mt-1 font-bold">工具</span>
+            </button>
+          </div>
+        </div>
+      );
+    };
+
+    const root = ReactDOM.createRoot(document.getElementById("root"));
+    root.render(<App />);
+  </script>
+</body>
+</html>
