@@ -11,6 +11,23 @@
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
 
+  <script>
+    window.onerror = function(msg, url, line, col, error) {
+      const errorBox = document.getElementById('error-box');
+      if (errorBox) {
+        errorBox.style.display = 'block';
+        errorBox.innerHTML = `
+          <h2 style="font-size:20px;font-weight:bold;margin-bottom:10px;">💥 發生錯誤 (Debug Mode)</h2>
+          <p><strong>原因：</strong>${msg}</p>
+          <p><strong>行數：</strong>${line}</p>
+          <p style="font-size:12px;color:#ccc;">${error?.stack || ''}</p>
+          <button onclick="localStorage.clear();window.location.reload()" style="background:white;color:red;padding:10px;border:none;border-radius:5px;margin-top:20px;font-weight:bold;">清除快取並重試</button>
+        `;
+      }
+      return false;
+    };
+  </script>
+
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
     import { getFirestore, doc, getDoc, setDoc, onSnapshot, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
@@ -36,17 +53,20 @@
   </style>
 </head>
 <body>
+  <div id="error-box" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:#8B0000; color:white; padding:20px; z-index:9999; overflow:auto;"></div>
+  
   <div id="root"></div>
 
   <script type="text/babel">
     const { useState, useEffect, useRef } = React;
 
-    // --- Firebase Config (請填入您的金鑰) ---
+    // --- Firebase Config (已幫您填入) ---
     const firebaseConfig = {
       apiKey: "AIzaSyC2IjvPIILHl3ftIZ8Iw2pBDWoXbE8SKAw",
       authDomain: "tohoku-travel-app.firebaseapp.com",
       projectId: "tohoku-travel-app",
-      storageBucket: "tohoku-travel-app.appspot.com",
+      // 👇 我幫您修正了這裡：改為 .appspot.com
+      storageBucket: "tohoku-travel-app.appspot.com", 
       messagingSenderId: "674159226780",
       appId: "1:674159226780:web:92dda0de23fb328114e259",
       measurementId: "G-8P7HE76T86"
@@ -83,27 +103,33 @@
       useEffect(() => {
         const initData = async () => {
           try {
-            if (!window.firebaseModules || firebaseConfig.apiKey === "YOUR_API_KEY") {
+            if (!window.firebaseModules) {
+              console.error("Firebase modules not loaded");
               setTripData(INITIAL_DATA); setLoading(false); return;
             }
             const { initializeApp, getFirestore, doc, setDoc, onSnapshot } = window.firebaseModules;
             const app = initializeApp(firebaseConfig);
             const db = getFirestore(app);
             const docRef = doc(db, "trips", "main");
+            
             onSnapshot(docRef, (snap) => {
               if (snap.exists()) {
                 const data = snap.data();
-                // [防崩潰修復]：確保資料結構完整
                 if (!data.tools) data.tools = {};
                 if (!data.tools.tickets) data.tools.tickets = [];
-                if (!data.tools.flights) data.tools.flights = [];
-                if (!data.tools.reservations) data.tools.reservations = [];
-                if (!data.tools.contacts) data.tools.contacts = [];
-                if (!data.tools.stays) data.tools.stays = [];
+                // 確保所有陣列存在以防崩潰
+                ['flights', 'reservations', 'contacts', 'stays'].forEach(key => {
+                  if(!data.tools[key]) data.tools[key] = [];
+                });
                 setTripData(data);
               } else {
                 setDoc(docRef, INITIAL_DATA);
               }
+              setLoading(false);
+            }, (error) => {
+              console.error("Firestore Error:", error);
+              alert("讀取資料失敗: " + error.message);
+              setTripData(INITIAL_DATA); // 降級為靜態資料
               setLoading(false);
             });
           } catch (e) { console.error(e); setTripData(INITIAL_DATA); setLoading(false); }
@@ -123,7 +149,6 @@
       const handleFileUpload = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
-        if (!window.firebaseModules) { alert("請先設定 Firebase Config"); return; }
         
         setUploading(true);
         try {
@@ -138,10 +163,10 @@
           if(!newData.tools.tickets) newData.tools.tickets = [];
           newData.tools.tickets.push({ name: file.name, refName: uniqueName, url: url, type: file.type, date: new Date().toLocaleDateString() });
           await updateCloud(newData);
-          alert("上傳成功！");
+          alert("✅ 上傳成功！");
         } catch (error) {
           console.error("Upload failed", error);
-          alert("上傳失敗：請檢查 Firebase Console > Storage 是否已開啟？(Storage Bucket 設定)");
+          alert(`❌ 上傳失敗: ${error.message}\n請檢查 Firebase Storage 設定或信用卡驗證。`);
         }
         setUploading(false);
       };
