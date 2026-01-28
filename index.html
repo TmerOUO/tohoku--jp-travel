@@ -65,7 +65,8 @@
     const CITY_COORDS = {
       "東京": { lat: 35.6895, lon: 139.6917 }, "成田": { lat: 35.7719, lon: 140.3928 }, "銀山": { lat: 38.5705, lon: 140.3996 },
       "大石田": { lat: 38.5956, lon: 140.3732 }, "秋田": { lat: 39.7167, lon: 140.1032 }, "田澤湖": { lat: 39.6994, lon: 140.7335 },
-      "乳頭": { lat: 39.7995, lon: 140.7692 }, "奧入瀨": { lat: 40.5847, lon: 140.9631 }, "青森": { lat: 40.8244, lon: 140.7400 }
+      "乳頭": { lat: 39.7995, lon: 140.7692 }, "奧入瀨": { lat: 40.5847, lon: 140.9631 }, "青森": { lat: 40.8244, lon: 140.7400 },
+      "角館": { lat: 39.5936, lon: 140.5627 }
     };
 
     const TYPE_STYLES = {
@@ -76,15 +77,25 @@
       default: { color: "border-gray-300", text: "text-gray-400", bg: "bg-gray-50", label: "ACTIVITY", icon: "circle" }
     };
 
-    // --- 實用日語資料 (v11.0 升級：導入萬能句型) ---
+    // --- 日語資料 (v11.2：保留預約與四人、整合萬能句型) ---
     const JAPANESE_PHRASES = [
       {
-        category: "萬能句型 (Magic Patterns)",
+        category: "餐廳 & 預約 (Dining)",
+        icon: "calendar-check",
+        phrases: [
+          { jp: "予約しています。", romaji: "Yoyaku shiteimasu", zh: "我有預約", note: "進店第一句話" },
+          { jp: "4人です。", romaji: "Yo-nin desu", zh: "我們有 4 個人", note: "手指比 4 也可以" },
+          { jp: "お会計をお願いします。", romaji: "O-kaikei o onegaishimasu", zh: "麻煩結帳", note: "吃飽後用" },
+          { jp: "写真はいいですか？", romaji: "Shashin wa ii desu ka?", zh: "可以拍照嗎？", note: "" }
+        ]
+      },
+      {
+        category: "萬能句型 (Patterns)",
         icon: "sparkles",
         phrases: [
-          { jp: "______ はありますか？", romaji: "... wa arimasu ka?", zh: "請問有 ______ 嗎？", note: "👉 填空：廁所(Toire)、收據(Reshiito)、這個(Kore)" },
-          { jp: "______ をください。", romaji: "... o kudasai", zh: "請給我 ______", note: "👉 填空：這個(Kore)、水(Omizu)、袋子(Fukuro)" },
-          { jp: "______ はどこですか？", romaji: "... wa doko desu ka?", zh: "請問 ______ 在哪裡？", note: "👉 填空：車站(Eki)、這裡(Koko)、便利商店(Konbini)" }
+          { jp: "______ はありますか？", romaji: "... wa arimasu ka?", zh: "請問有 ______ 嗎？", note: "👉 填空：廁所(Toire)、菜單(Menu)" },
+          { jp: "______ をください。", romaji: "... o kudasai", zh: "請給我 ______", note: "👉 填空：這個(Kore)、水(Omizu)" },
+          { jp: "______ はどこですか？", romaji: "... wa doko desu ka?", zh: "請問 ______ 在哪裡？", note: "👉 填空：車站(Eki)、這裡(Koko)" }
         ]
       },
       {
@@ -109,7 +120,14 @@
 
     const INITIAL_DATA = {
       schedule: [
-        { date: "01/31 (六)", weather: { city: "東京", temp: "-", icon: "cloud-sun" }, items: [ { id: "s0", type: "transport", time: "06:55", title: "起飛：高雄 -> 成田", location: "小港機場", desc: "BR/JL 航班", tags: ["集合"], guide: { tips: ["VJW截圖備用"] } }, { id: "s01", type: "stay", time: "19:00", title: "APA Hotel Ueno", location: "APA Hotel Ueno Ekimae", desc: "全員東京集合", tags: ["住宿"] } ] },
+        { 
+          date: "01/31 (六)", 
+          weather: { city: "東京", temp: "-", icon: "cloud-sun" }, 
+          items: [ 
+            { id: "s0", type: "transport", time: "06:55", title: "起飛：高雄 -> 成田", location: "小港機場", desc: "BR/JL 航班", tags: ["集合"], guide: { tips: ["VJW截圖備用"] } }, 
+            { id: "s01", type: "stay", time: "19:00", title: "APA Hotel Ueno", location: "APA Hotel Ueno Ekimae", desc: "全員東京集合", tags: ["住宿"] } 
+          ] 
+        },
         { 
           date: "02/01 (日)", 
           weather: { city: "東京", temp: "-", icon: "sun" }, 
@@ -118,8 +136,29 @@
             { id: "s1b", type: "spot", time: "20:30", title: "Memento Mori", location: "Toranomon Hills", desc: "世界可可豆靈感酒吧", tags: ["Cacao調酒"], guide: { story: "🍫 概念：以世界各地的可可豆為靈感設計|🧪 特色：這裡不談生死，而是像實驗室一樣萃取可可的風味|🍸 必點：Cacao Pulp Fizz (可可果肉調酒)|📍 位置：虎之門 Hills 3樓，黑色密門", mustEat: ["Cacao Pulp Fizz", "Amazon Cacao"] } } 
           ] 
         },
-        { date: "02/02 (一)", weather: { city: "銀山", temp: "-", icon: "snowflake" }, items: [ { id: "t1", type: "transport", time: "07:18", title: "新幹線 -> 大石田", location: "Ueno Station", desc: "山形新幹線", tags: ["JR Pass"] }, { id: "s3", type: "stay", time: "15:00", title: "銀山溫泉 古山閣", location: "Ginzan Onsen", desc: "尾款付現", cashAlert: 123800 } ] },
-        { date: "02/03 (二)", weather: { city: "田澤湖", temp: "-", icon: "snowflake" }, items: [ { id: "t3", type: "transport", time: "09:40", title: "銀山 -> 田澤湖", location: "Ginzan Onsen", desc: "大遷徙轉乘", tags: ["¥4,820"] }, { id: "s4", type: "stay", time: "15:00", title: "田澤湖民宿", location: "Tazawako", desc: "米棒鍋體驗", tags: ["一泊二食"] } ] },
+        { 
+          date: "02/02 (一)", 
+          weather: { city: "銀山", temp: "-", icon: "snowflake" }, 
+          items: [ 
+            { id: "t1", type: "transport", time: "07:18", title: "新幹線 -> 大石田", location: "Ueno Station", desc: "山形新幹線", tags: ["JR Pass"] }, 
+            { id: "s3", type: "stay", time: "15:00", title: "銀山溫泉 古山閣", location: "Ginzan Onsen", desc: "尾款付現", cashAlert: 123800 } 
+          ] 
+        },
+        { 
+          date: "02/03 (二)", 
+          weather: { city: "秋田", temp: "-", icon: "snowflake" }, 
+          items: [ 
+            { id: "t3_1", type: "transport", time: "09:40", title: "古山閣接駁車", location: "Ginzan Onsen", desc: "前往 JR 大石田站", tags: ["免費接駁"] },
+            { id: "t3_2", type: "transport", time: "10:31", title: "山形新幹線 -> 新庄", location: "Oishida Station", desc: "つばさ (對號座)", tags: ["JR Pass"] },
+            { id: "t3_3", type: "transport", time: "11:18", title: "奧羽本線 -> 院內", location: "Shinjo Station", desc: "往 橫堀 行", tags: ["普通車"] },
+            { id: "t3_4", type: "transport", time: "12:11", title: "奧羽本線 -> 大曲", location: "Innai Station", desc: "往 秋田 行", tags: ["普通車"] },
+            { id: "t3_5", type: "transport", time: "13:39", title: "秋田新幹線 -> 角館", location: "Omagari Station", desc: "こまち (對號座)", tags: ["JR Pass"], guide: { story: "⚠️ 轉乘時間約 25 分鐘，請注意月台指標。" } },
+            { id: "f_kakunodate", type: "food", time: "14:00", title: "お食事処 桜の里", location: "Kakunodate", desc: "必吃：比內地雞親子丼 & 稻庭烏龍麵", tags: ["午餐"] },
+            { id: "t3_6", type: "transport", time: "17:02", title: "前往田澤湖站", location: "Kakunodate Station", desc: "車程約 13 分鐘", tags: [] },
+            { id: "t3_7", type: "transport", time: "17:20", title: "田澤湖一周線 (右周り)", location: "Tazawako Station", desc: "前往「上田子ノ木」", tags: ["巴士"], guide: { story: "🚌 站牌：田澤湖站前|🚏 下車：上田子ノ木 (17:39 抵達)|🚶 步行：下車後步行約 3 分鐘抵達民宿" } },
+            { id: "s4", type: "stay", time: "18:00", title: "田澤湖民宿 Farmstay", location: "Tazawako", desc: "體驗道地秋田農家生活", tags: ["一泊二食"] } 
+          ] 
+        },
         { date: "02/04 (三)", weather: { city: "乳頭", temp: "-", icon: "snowflake" }, items: [ { id: "s6", type: "stay", time: "15:00", title: "乳頭溫泉 鶴之湯", location: "Tsurunoyu Onsen", desc: "秘湯混浴", cashAlert: 69520 } ] },
         { date: "02/05 (四)", weather: { city: "奧入瀨", temp: "-", icon: "snowflake" }, items: [ { id: "s7", type: "stay", time: "15:00", title: "星野奧入瀨", location: "Hoshino Resorts", desc: "領取行李", tags: ["必住"] } ] }
       ],
@@ -268,22 +307,13 @@
           <h2 className="text-3xl font-serif font-bold mb-8 text-[#2C2C2C]">Travel Tools</h2>
           <div className="bg-[#1A1A1A] text-white p-6 rounded-3xl shadow-2xl mb-8 relative overflow-hidden group"><div className="flex justify-between items-start mb-6 z-10 relative"><div><span className="bg-[#D95D7D] text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider shadow-lg">Must Have</span></div><div className="bg-white/10 p-2 rounded-full backdrop-blur-md"><i data-lucide="external-link" className="w-5 h-5"></i></div></div><div onClick={() => window.open('https://vjw-lp.digital.go.jp/zh-hant/', '_blank')} className="cursor-pointer z-10 relative"><h3 className="text-3xl font-serif mb-2">Visit Japan Web</h3><p className="text-gray-400 text-xs font-light">入境審查 & 海關申報 (請截圖 QR Code)</p></div><div className="absolute -bottom-10 -right-10 w-48 h-48 bg-white/5 rounded-full blur-3xl group-hover:bg-white/10 transition-all"></div></div>
           
-          {/* 新增：VoiceTra 外部工具 */}
           <div className="bg-[#4F46E5] text-white p-6 rounded-3xl shadow-2xl mb-8 relative overflow-hidden group cursor-pointer" onClick={() => window.open('https://voicetra.nict.go.jp/en/', '_blank')}>
-             <div className="flex justify-between items-start mb-6 z-10 relative">
-               <div><span className="bg-white/20 text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider shadow-lg">External App</span></div>
-               <div className="bg-white/10 p-2 rounded-full backdrop-blur-md"><i data-lucide="mic" className="w-5 h-5"></i></div>
-             </div>
-             <div className="z-10 relative">
-               <h3 className="text-3xl font-serif mb-2">VoiceTra</h3>
-               <p className="text-indigo-200 text-xs font-light">日本官方語音翻譯神器，比 Google 翻譯更精準！</p>
-             </div>
-             <div className="absolute -bottom-10 -right-10 w-48 h-48 bg-indigo-500/50 rounded-full blur-3xl group-hover:bg-indigo-400/50 transition-all"></div>
+             <div className="flex justify-between items-start mb-6 z-10 relative"><div><span className="bg-white/20 text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider shadow-lg">External App</span></div><div className="bg-white/10 p-2 rounded-full backdrop-blur-md"><i data-lucide="mic" className="w-5 h-5"></i></div></div>
+             <div className="z-10 relative"><h3 className="text-3xl font-serif mb-2">VoiceTra</h3><p className="text-indigo-200 text-xs font-light">日本官方語音翻譯神器，比 Google 翻譯更精準！</p></div><div className="absolute -bottom-10 -right-10 w-48 h-48 bg-indigo-500/50 rounded-full blur-3xl group-hover:bg-indigo-400/50 transition-all"></div>
           </div>
 
           <div className="mb-8"><h3 className="text-[#8B2222] font-bold mb-4 flex items-center text-sm tracking-widest"><i data-lucide="shield-alert" className="w-4 h-4 mr-2"></i> 緊急聯絡 & 支援</h3><div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden"><div className="grid grid-cols-2 border-b border-gray-100"><div className="p-6 text-center border-r border-gray-100"><span className="text-xs text-red-400 block mb-1 tracking-widest font-bold">警察 (POLICE)</span><a href="tel:110" className="text-4xl font-serif text-[#9A2525] font-bold block hover:opacity-70">110</a></div><div className="p-6 text-center"><span className="text-xs text-red-400 block mb-1 tracking-widest font-bold">救護 / 火警</span><a href="tel:119" className="text-4xl font-serif text-[#9A2525] font-bold block hover:opacity-70">119</a></div></div><div className="p-6 flex justify-between items-center border-b border-gray-100"><div><h4 className="font-bold text-gray-800 text-lg leading-tight">訪日外國人<br/>醫療 & 急難熱線</h4><p className="text-[10px] text-gray-400 mt-2 uppercase tracking-wide">Japan Visitor Hotline (JNTO)</p><a href="tel:050-3816-2787" className="text-xl font-bold text-gray-600 mt-1 block tracking-wider">050-3816-2787</a><p className="text-[10px] text-gray-300 mt-1">* 24小時對應 (英/中/韓)</p></div><a href="tel:050-3816-2787" className="bg-[#2C2C2C] text-white p-4 rounded-full active:scale-90 transition-transform shadow-md"><i data-lucide="phone" className="w-6 h-6"></i></a></div><div className="p-5 bg-gray-50"><span className="bg-gray-200 text-gray-600 text-[10px] px-2 py-0.5 rounded mb-2 inline-block font-bold">外交部</span><span className="text-sm font-bold text-gray-700 ml-2">台北駐日經濟文化代表處 (東京)</span><div className="mt-3 space-y-2 pl-1"><p className="text-sm text-gray-500 flex items-center"><span className="w-24 text-xs opacity-70">上班時間：</span>03-3280-7811</p><p className="text-sm text-[#9A2525] font-bold flex items-center"><span className="w-24 text-xs opacity-70 text-red-400">急難救助：</span>080-1009-7179</p></div></div></div></div>
 
-          {/* 實用日語 (萬能句型版) */}
           <div className="mb-8">
             <h3 className="text-[#2C2C2C] font-bold mb-4 flex items-center text-sm tracking-widest"><i data-lucide="message-circle" className="w-4 h-4 mr-2"></i> 實用日語 (點擊放大 & 聽)</h3>
             <div className="grid grid-cols-1 gap-3">
@@ -313,7 +343,6 @@
         </div>
       );
 
-      // --- 大字卡 Modal (支援顯示 Note) ---
       const PhraseModal = () => {
         if (!activePhrase) return null;
         return (
@@ -323,10 +352,7 @@
                 <p className="text-sm text-gray-400 mb-6 font-bold tracking-widest uppercase">Show this to staff</p>
                 <p className="text-4xl font-bold text-gray-900 mb-2 leading-tight break-words">{activePhrase.jp}</p>
                 <p className="text-sm text-gray-400 font-sans-eng mb-4">{activePhrase.romaji}</p>
-                
-                {/* 顯示填空提示 (Note) */}
                 {activePhrase.note && <div className="bg-orange-50 text-orange-700 text-xs p-2 rounded-lg mb-6 border border-orange-100 font-bold">{activePhrase.note}</div>}
-                
                 <button onClick={() => speakJapanese(activePhrase.jp)} className="w-full py-4 bg-orange-500 text-white rounded-xl font-bold text-lg shadow-lg active:scale-95 transition-transform flex items-center justify-center"><i data-lucide="volume-2" className="w-6 h-6 mr-2"></i> 播放語音 (Play)</button>
                 <p className="text-xs text-gray-300 mt-4">{activePhrase.zh}</p>
              </div>
