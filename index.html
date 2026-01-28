@@ -36,7 +36,6 @@
       background-color: #FDFAF5; 
       font-family: 'Zen Maru Gothic', sans-serif; 
       -webkit-tap-highlight-color: transparent; 
-      /* 優化觸控反應，移除 300ms 點擊延遲 */
       touch-action: manipulation; 
     }
     
@@ -46,11 +45,10 @@
     .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     html { scroll-behavior: smooth; }
     
-    /* 動畫優化：使用 GPU 加速 */
     .fade-in { 
       animation: fadeIn 0.3s ease-out forwards; 
       will-change: transform, opacity;
-      transform: translate3d(0,0,0); /* 強制 GPU 渲染 */
+      transform: translate3d(0,0,0);
     }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     
@@ -113,8 +111,27 @@
       tools: { tickets: [], flights: [], reservations: [], stays: [] }
     };
 
-    // --- 安全穩定的 Icon 組件 (避免 React.memo 衝突) ---
-    const LucideIcon = ({ name, className }) => <i data-lucide={name} className={className}></i>;
+    // --- 關鍵修復：隔離圖標渲染 (Wrapper) ---
+    // 這裡使用 span 來包裹圖標，讓 React 只管理 span，Lucide 在 span 裡面畫圖
+    // 這樣 React 就不會因為找不到元素而崩潰了
+    const LucideIcon = ({ name, className }) => {
+      const ref = useRef(null);
+      
+      useEffect(() => {
+        if (window.lucide && ref.current) {
+          // 清空舊的內容
+          ref.current.innerHTML = `<i data-lucide="${name}" class="${className}"></i>`;
+          // 呼叫 Lucide 渲染
+          window.lucide.createIcons({
+            root: ref.current,
+            nameAttr: 'data-lucide',
+            attrs: { class: className }
+          });
+        }
+      }, [name, className]);
+
+      return <span ref={ref} style={{display: 'inline-flex'}}></span>;
+    };
 
     const WeatherWidget = ({ city }) => {
       const [forecast, setForecast] = useState([]);
@@ -164,16 +181,6 @@
       const [openPhraseCategory, setOpenPhraseCategory] = useState(null);
       const [activePhrase, setActivePhrase] = useState(null);
 
-      // --- 核心：智慧圖標載入 (解決卡頓與不顯示) ---
-      useEffect(() => {
-        // 只有在資料載入完成、或切換頁面後，稍微延遲執行一次掃描
-        // 這比每秒掃描 (setInterval) 省電且流暢非常多
-        const timer = setTimeout(() => {
-          if (window.lucide) window.lucide.createIcons();
-        }, 50);
-        return () => clearTimeout(timer);
-      }, [activeTab, tripData, openPhraseCategory, activePhrase]);
-
       useEffect(() => {
         const initData = async () => {
           try {
@@ -207,7 +214,8 @@
       const speakJapanese = (text) => {
         if (!window.speechSynthesis) { alert("您的手機不支援語音功能"); return; }
         const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = 'ja-JP'; utterance.rate = 0.8; 
+        utterance.lang = 'ja-JP'; 
+        utterance.rate = 0.8; 
         window.speechSynthesis.speak(utterance);
       };
 
