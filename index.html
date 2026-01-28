@@ -108,7 +108,36 @@
         { date: "02/05 (四)", weather: { city: "奧入瀨", temp: "-", icon: "snowflake" }, items: [ { id: "s7", type: "stay", time: "15:00", title: "星野奧入瀨", location: "Hoshino Resorts", desc: "領取行李", tags: ["必住"] } ] }
       ],
       logistics: { shipping: { from: "APA Hotel Ueno", to: "星野奧入瀨", date: "02/02", address: "〒034-0398 青森県十和田市...", tel: "+81-50-3134-8096" } },
-      tools: { tickets: [], flights: [], reservations: [], stays: [] }
+      tools: { 
+        tickets: [
+          // v15.1 新增：根據您提供的 PDF 內容，生成的「原生數位票卡」
+          { 
+            name: "🚌 十和田湖接駁 (去程)", 
+            type: "virtual", // 標記為數位票卡
+            date: "2026/02/06",
+            details: {
+              id: "TOW-T119238569",
+              time: "15:55",
+              from: "奧入瀨溪流館公廁前",
+              to: "休屋北停車場廁所前",
+              pax: "4 Adult"
+            }
+          },
+          { 
+            name: "🚌 十和田湖接駁 (回程)", 
+            type: "virtual", 
+            date: "2026/02/06",
+            details: {
+              id: "TOW-T119238576",
+              time: "20:20",
+              from: "休屋北停車場廁所前",
+              to: "奧入瀨溪流館",
+              pax: "4 Adult"
+            }
+          }
+        ], 
+        flights: [], reservations: [], stays: [] 
+      }
     };
 
     const LucideIcon = ({ name, className }) => {
@@ -122,6 +151,7 @@
       return <span ref={ref} style={{display: 'inline-flex'}}></span>;
     };
 
+    // v15.0: 圖片壓縮
     const compressImage = (file) => {
       return new Promise((resolve) => {
         const reader = new FileReader();
@@ -247,27 +277,26 @@
         window.location.reload(); 
       };
 
-      // --- v15.0: 智慧檔案處理 (圖片壓縮 / PDF 直存) ---
       const handleFileUpload = async (e) => { 
         const file = e.target.files[0]; 
         if (!file) return; 
         setUploading(true); 
-        
         try {
           let fileDataUrl = "";
+          let fileType = file.type;
           
           if (file.type === "application/pdf") {
-             // 如果是 PDF，直接讀取不壓縮
+             // PDF 直接讀取，不壓縮
              fileDataUrl = await new Promise((resolve) => {
                 const reader = new FileReader();
                 reader.onload = (e) => resolve(e.target.result);
                 reader.readAsDataURL(file);
              });
           } else if (file.type.startsWith("image/")) {
-             // 如果是圖片，進行壓縮
+             // 圖片進行壓縮
              fileDataUrl = await compressImage(file);
           } else {
-             throw new Error("不支援的檔案格式，請上傳 PDF 或圖片");
+             throw new Error("格式不支援，請上傳 PDF 或圖片");
           }
 
           const newData = JSON.parse(JSON.stringify(tripData)); 
@@ -275,7 +304,7 @@
           newData.tools.tickets.push({ 
             name: file.name, 
             url: fileDataUrl, 
-            type: file.type, // 重要：記錄檔案類型
+            type: fileType, // 記錄類型以便 Viewer 判斷
             date: new Date().toLocaleDateString() 
           }); 
           
@@ -381,7 +410,7 @@
              {tripData.tools.tickets.map((t, i) => (
                <div key={i} className="flex justify-between items-center py-3 border-b border-gray-50 last:border-0 cursor-pointer active:bg-gray-50" onClick={() => setActiveTicket({ ...t, index: i })}>
                   <div className="flex items-center flex-1 truncate">
-                    <LucideIcon name="ticket" className="w-4 h-4 mr-3 text-orange-400" />
+                    <LucideIcon name={t.type === "virtual" ? "qr-code" : "ticket"} className={`w-4 h-4 mr-3 ${t.type === "virtual" ? "text-purple-500" : "text-orange-400"}`} />
                     <span className="text-sm font-medium text-gray-600 truncate">{t.name}</span>
                   </div>
                   <LucideIcon name="chevron-right" className="w-4 h-4 text-gray-300" />
@@ -395,38 +424,79 @@
         </div>
       );
 
-      // --- v15.0: 智慧票券預覽器 (支援圖片 & PDF) ---
+      // --- v15.1: 智慧票券預覽器 (三模支援：圖片 / PDF / 數位票卡) ---
       const TicketModal = () => {
         if (!activeTicket) return null;
         
-        // 判斷是否為 PDF
         const isPdf = activeTicket.type === "application/pdf";
+        const isVirtual = activeTicket.type === "virtual";
 
         return (
           <div className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm flex flex-col items-center justify-center p-6 scale-in" onClick={() => setActiveTicket(null)}>
              <button onClick={() => setActiveTicket(null)} className="absolute top-6 right-6 text-white/50 hover:text-white p-2 bg-white/10 rounded-full backdrop-blur-md transition-colors z-20"><LucideIcon name="x" className="w-6 h-6" /></button>
 
-             <div className={`w-full max-w-sm bg-white rounded-3xl overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex flex-col relative ${isPdf ? 'h-[85vh]' : 'max-h-[85vh]'}`} onClick={(e) => e.stopPropagation()}>
-                
-                {/* 顯示區：根據類型切換 Image 或 Iframe */}
-                <div className="flex-1 bg-gray-100 relative overflow-hidden flex items-center justify-center">
-                   {isPdf ? (
-                     <iframe src={activeTicket.url} className="w-full h-full border-0" title="PDF Viewer"></iframe>
-                   ) : (
-                     <div className="w-full h-full overflow-auto p-2 flex items-center justify-center">
-                       <img src={activeTicket.url} alt={activeTicket.name} className="max-w-full w-auto h-auto object-contain shadow-sm rounded-lg" />
-                     </div>
-                   )}
-                </div>
-
-                <div className="p-6 bg-white border-t border-dashed border-gray-200 relative">
-                   <div className="absolute -top-3 -left-3 w-6 h-6 bg-black rounded-full"></div>
-                   <div className="absolute -top-3 -right-3 w-6 h-6 bg-black rounded-full"></div>
-                   <h3 className="text-xl font-bold text-gray-900 mb-1 line-clamp-2">{activeTicket.name}</h3>
-                   <p className="text-xs text-gray-400 font-sans-eng mb-4 uppercase tracking-wider">Added on {activeTicket.date}</p>
-                   <button onClick={() => handleDeleteTicket(activeTicket.index)} className="w-full py-3 border border-red-100 text-red-500 rounded-xl font-bold text-sm hover:bg-red-50 active:scale-95 transition-all flex items-center justify-center"><LucideIcon name="trash-2" className="w-4 h-4 mr-2" /> 移除票券 (Remove)</button>
-                </div>
-             </div>
+             {isVirtual ? (
+               // --- 數位票卡模式 (Smart Ticket) ---
+               <div className="w-full max-w-sm bg-white rounded-3xl overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex flex-col relative border-t-8 border-purple-500" onClick={(e) => e.stopPropagation()}>
+                  <div className="p-6 text-center border-b border-dashed border-gray-200">
+                    <h3 className="text-lg font-bold text-gray-900 mb-1">{activeTicket.name}</h3>
+                    <p className="text-sm text-gray-500 font-sans-eng">{activeTicket.date}</p>
+                  </div>
+                  <div className="p-6 space-y-6">
+                    <div className="flex justify-between items-center">
+                       <div className="text-left">
+                         <p className="text-xs text-gray-400 uppercase tracking-wider mb-1">Time</p>
+                         <p className="text-3xl font-bold text-gray-900 font-sans-eng">{activeTicket.details.time}</p>
+                       </div>
+                       <div className="text-right">
+                         <p className="text-xs text-gray-400 uppercase tracking-wider mb-1">Passengers</p>
+                         <p className="text-xl font-bold text-gray-900 font-sans-eng">{activeTicket.details.pax}</p>
+                       </div>
+                    </div>
+                    <div className="bg-gray-50 p-4 rounded-xl space-y-3">
+                       <div className="flex items-start">
+                         <div className="w-2 h-2 bg-purple-500 rounded-full mt-2 mr-3 flex-shrink-0"></div>
+                         <div>
+                           <p className="text-xs text-gray-400 mb-0.5">Pick Up</p>
+                           <p className="text-sm font-bold text-gray-800">{activeTicket.details.from}</p>
+                         </div>
+                       </div>
+                       <div className="pl-1"><div className="w-0.5 h-6 bg-gray-200 ml-0.5"></div></div>
+                       <div className="flex items-start">
+                         <div className="w-2 h-2 bg-gray-400 rounded-full mt-2 mr-3 flex-shrink-0"></div>
+                         <div>
+                           <p className="text-xs text-gray-400 mb-0.5">Drop Off</p>
+                           <p className="text-sm font-bold text-gray-800">{activeTicket.details.to}</p>
+                         </div>
+                       </div>
+                    </div>
+                    <div className="text-center">
+                       <p className="text-xs text-gray-400 mb-2">Booking ID</p>
+                       <p className="text-2xl font-mono font-bold text-gray-800 tracking-wider bg-gray-100 py-2 rounded-lg">{activeTicket.details.id}</p>
+                    </div>
+                  </div>
+               </div>
+             ) : (
+               // --- 圖片/PDF 模式 ---
+               <div className={`w-full max-w-sm bg-white rounded-3xl overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex flex-col relative ${isPdf ? 'h-[85vh]' : 'max-h-[85vh]'}`} onClick={(e) => e.stopPropagation()}>
+                  <div className="flex-1 bg-gray-100 relative overflow-hidden flex items-center justify-center">
+                     {isPdf ? (
+                       <iframe src={activeTicket.url} className="w-full h-full border-0" title="PDF Viewer"></iframe>
+                     ) : (
+                       <div className="w-full h-full overflow-auto p-2 flex items-center justify-center">
+                         <img src={activeTicket.url} alt={activeTicket.name} className="max-w-full w-auto h-auto object-contain shadow-sm rounded-lg" />
+                       </div>
+                     )}
+                  </div>
+                  <div className="p-6 bg-white border-t border-dashed border-gray-200 relative">
+                     <div className="absolute -top-3 -left-3 w-6 h-6 bg-black rounded-full"></div>
+                     <div className="absolute -top-3 -right-3 w-6 h-6 bg-black rounded-full"></div>
+                     <h3 className="text-xl font-bold text-gray-900 mb-1 line-clamp-2">{activeTicket.name}</h3>
+                     <p className="text-xs text-gray-400 font-sans-eng mb-4 uppercase tracking-wider">Added on {activeTicket.date}</p>
+                     <button onClick={() => handleDeleteTicket(activeTicket.index)} className="w-full py-3 border border-red-100 text-red-500 rounded-xl font-bold text-sm hover:bg-red-50 active:scale-95 transition-all flex items-center justify-center"><LucideIcon name="trash-2" className="w-4 h-4 mr-2" /> 移除票券 (Remove)</button>
+                  </div>
+               </div>
+             )}
           </div>
         );
       };
