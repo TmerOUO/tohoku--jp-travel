@@ -61,15 +61,9 @@
     };
 
     const CITY_COORDS = {
-      "東京": { lat: 35.6895, lon: 139.6917 },
-      "成田": { lat: 35.7719, lon: 140.3928 },
-      "銀山": { lat: 38.5705, lon: 140.3996 },
-      "大石田": { lat: 38.5956, lon: 140.3732 },
-      "秋田": { lat: 39.7167, lon: 140.1032 },
-      "田澤湖": { lat: 39.6994, lon: 140.7335 },
-      "乳頭": { lat: 39.7995, lon: 140.7692 },
-      "奧入瀨": { lat: 40.5847, lon: 140.9631 },
-      "青森": { lat: 40.8244, lon: 140.7400 }
+      "東京": { lat: 35.6895, lon: 139.6917 }, "成田": { lat: 35.7719, lon: 140.3928 }, "銀山": { lat: 38.5705, lon: 140.3996 },
+      "大石田": { lat: 38.5956, lon: 140.3732 }, "秋田": { lat: 39.7167, lon: 140.1032 }, "田澤湖": { lat: 39.6994, lon: 140.7335 },
+      "乳頭": { lat: 39.7995, lon: 140.7692 }, "奧入瀨": { lat: 40.5847, lon: 140.9631 }, "青森": { lat: 40.8244, lon: 140.7400 }
     };
 
     const TYPE_STYLES = {
@@ -80,6 +74,7 @@
       default: { color: "border-gray-300", text: "text-gray-400", bg: "bg-gray-50", label: "ACTIVITY", icon: "circle" }
     };
 
+    // --- 這裡就是您可以靈活調整的地方 (INITIAL_DATA) ---
     const INITIAL_DATA = {
       schedule: [
         { date: "01/31 (六)", weather: { city: "東京", temp: "-", icon: "cloud-sun" }, items: [ { id: "s0", type: "transport", time: "06:55", title: "起飛：高雄 -> 成田", location: "小港機場", desc: "BR/JL 航班", tags: ["集合"], guide: { tips: ["VJW截圖備用"] } }, { id: "s01", type: "stay", time: "19:00", title: "APA Hotel Ueno", location: "APA Hotel Ueno Ekimae", desc: "全員東京集合", tags: ["住宿"] } ] },
@@ -88,11 +83,13 @@
           weather: { city: "東京", temp: "-", icon: "sun" }, 
           items: [ 
             { id: "s1", type: "food", time: "12:00", title: "燒肉 29 Terrace", location: "Yakiniku 29 Terrace", desc: "必吃高評價燒肉", tags: ["已訂位"], guide: { mustEat: ["厚切牛舌"], reservation: { code: "書瑜" } } }, 
+            // 👇 修正後的 Memento Mori 資料
             { 
               id: "s1b", type: "spot", time: "20:30", title: "Memento Mori", location: "Toranomon Hills", 
-              desc: "世界可可豆靈感酒吧", tags: ["Cacao調酒"], 
+              desc: "以世界各地「可可豆」為靈感的系調酒", tags: ["Cacao調酒"], 
               guide: { 
-                story: "🍃 主題：Cacao & Botanical (可可與植物)|🕒 時間：14:00 - 23:00 (週一公休)|📍 位置：虎之門 Hills 3樓，入口隱密|💡 特色：探索可可豆的無限可能，店內有如實驗室。", 
+                // 使用 | 來控制換行，您可以隨時在這裡修改
+                story: "🍫 概念：以世界各地的可可豆為靈感設計|🧪 特色：這裡不談生死，而是像實驗室一樣萃取可可的風味|🍸 必點：Cacao Pulp Fizz (可可果肉調酒)|📍 位置：虎之門 Hills 3樓，黑色密門", 
                 mustEat: ["Cacao Pulp Fizz", "Amazon Cacao"] 
               } 
             } 
@@ -111,7 +108,6 @@
       const [forecast, setForecast] = useState([]);
       const [current, setCurrent] = useState(null);
       const [loading, setLoading] = useState(true);
-
       useEffect(() => {
         const fetchWeather = async () => {
           setLoading(true);
@@ -131,13 +127,8 @@
         };
         fetchWeather();
       }, [city]);
-
-      const getWeatherIcon = (code) => {
-        if (code <= 3) return "sun"; if (code <= 48) return "cloud-fog"; if (code <= 67) return "cloud-rain"; if (code <= 86) return "snowflake"; return "cloud";
-      };
-
+      const getWeatherIcon = (code) => { if (code <= 3) return "sun"; if (code <= 48) return "cloud-fog"; if (code <= 67) return "cloud-rain"; if (code <= 86) return "snowflake"; return "cloud"; };
       if (loading) return <div className="h-24 flex items-center justify-center text-gray-400 text-xs">載入氣象中...</div>;
-
       return (
         <div className="mb-8 mt-2">
           <div className="flex items-baseline justify-between px-1 mb-4">
@@ -145,9 +136,7 @@
              {current && (<div className="text-right"><span className="text-4xl font-serif text-[#2C2C2C]">{current.temperature}°</span><i data-lucide={getWeatherIcon(current.weathercode)} className="inline ml-2 w-6 h-6 text-gray-400"></i></div>)}
           </div>
           <div className="flex overflow-x-auto no-scrollbar space-x-6 pb-2 px-1">
-            {forecast.map((f, i) => (
-              <div key={i} className="flex-shrink-0 flex flex-col items-center justify-center"><span className="text-xs font-serif text-gray-400 mb-2">{f.time.split(':')[0]}:00</span><i data-lucide={getWeatherIcon(f.code)} className="w-5 h-5 text-gray-600 mb-2"></i><span className="text-sm font-bold text-[#2C2C2C]">{f.temp}°</span></div>
-            ))}
+            {forecast.map((f, i) => (<div key={i} className="flex-shrink-0 flex flex-col items-center justify-center"><span className="text-xs font-serif text-gray-400 mb-2">{f.time.split(':')[0]}:00</span><i data-lucide={getWeatherIcon(f.code)} className="w-5 h-5 text-gray-600 mb-2"></i><span className="text-sm font-bold text-[#2C2C2C]">{f.temp}°</span></div>))}
           </div>
         </div>
       );
@@ -192,14 +181,11 @@
         await updateDoc(doc(db, "trips", "main"), newData);
       };
 
-      const handleForceReset = async () => { if(!confirm("清除雲端修改？")) return; setLoading(true); if(window.firebaseModules){ const {getFirestore,doc,setDoc}=window.firebaseModules; await setDoc(doc(getFirestore(),"trips","main"), INITIAL_DATA); } window.location.reload(); };
-      const handleFileUpload = async (e) => {
-        const file = e.target.files[0]; if (!file) return; setUploading(true);
-        try { const { getStorage, ref, uploadBytes, getDownloadURL } = window.firebaseModules; const storage = getStorage(); const uniqueName = `${Date.now()}_${file.name}`; const storageRef = ref(storage, 'tickets/' + uniqueName); await uploadBytes(storageRef, file); const url = await getDownloadURL(storageRef); const newData = JSON.parse(JSON.stringify(tripData)); if(!newData.tools.tickets) newData.tools.tickets = []; newData.tools.tickets.push({ name: file.name, refName: uniqueName, url: url, type: file.type, date: new Date().toLocaleDateString() }); await updateCloud(newData); alert("✅ 上傳成功"); } catch (error) { alert(`❌ 失敗: ${error.message}`); } setUploading(false);
-      };
+      const handleForceReset = async () => { if(!confirm("⚠️ 警告：這會將資料庫重置為程式碼中的預設值。確定嗎？")) return; setLoading(true); if(window.firebaseModules){ const {getFirestore,doc,setDoc}=window.firebaseModules; await setDoc(doc(getFirestore(),"trips","main"), INITIAL_DATA); } window.location.reload(); };
+      const handleFileUpload = async (e) => { const file = e.target.files[0]; if (!file) return; setUploading(true); try { const { getStorage, ref, uploadBytes, getDownloadURL } = window.firebaseModules; const storage = getStorage(); const uniqueName = `${Date.now()}_${file.name}`; const storageRef = ref(storage, 'tickets/' + uniqueName); await uploadBytes(storageRef, file); const url = await getDownloadURL(storageRef); const newData = JSON.parse(JSON.stringify(tripData)); if(!newData.tools.tickets) newData.tools.tickets = []; newData.tools.tickets.push({ name: file.name, refName: uniqueName, url: url, type: file.type, date: new Date().toLocaleDateString() }); await updateCloud(newData); alert("✅ 上傳成功"); } catch (error) { alert(`❌ 失敗: ${error.message}`); } setUploading(false); };
       const handleDeleteTicket = async (i) => { if (!confirm("刪除？")) return; const newData = JSON.parse(JSON.stringify(tripData)); newData.tools.tickets.splice(i, 1); await updateCloud(newData); };
       const handleEditField = (path, val) => { const newData = JSON.parse(JSON.stringify(tripData)); const parts = path.split('.'); let current = newData; for (let i = 0; i < parts.length - 1; i++) current = current[parts[i]]; current[parts[parts.length - 1]] = val; updateCloud(newData); };
-      const handleAddItem = (d) => { const newData = JSON.parse(JSON.stringify(tripData)); newData.schedule[d].items.push({ id: Date.now().toString(), time: "00:00", title: "新行程", location: "地點", desc: "...", tags: [], type: "spot" }); updateCloud(newData); };
+      const handleAddItem = (d) => { const newData = JSON.parse(JSON.stringify(tripData)); newData.schedule[d].items.push({ id: Date.now().toString(), time: "00:00", title: "New Item", location: "Location", desc: "...", tags: [], type: "spot" }); updateCloud(newData); };
       const handleDeleteItem = (d, i) => { if(!confirm("刪除？")) return; const newData = JSON.parse(JSON.stringify(tripData)); newData.schedule[d].items.splice(i, 1); updateCloud(newData); };
       const handleAddDate = () => { const d = prompt("日期"); if(!d) return; const newData = JSON.parse(JSON.stringify(tripData)); newData.schedule.push({ date: d, weather: {city:"東京", temp:"-", icon:"sun"}, items: []}); updateCloud(newData); };
       
@@ -222,46 +208,17 @@
                <span className="font-serif text-2xl text-[#2C2C2C] leading-none">{item.time}</span>
                {isEditMode && <div className="mt-1"><EditBtn path={`${basePath}.time`} originalValue={item.time} label="時間"/></div>}
              </div>
-
-             <div 
-               className={`flex-1 ${style.color} border-l-[3px] pl-5 pb-2 cursor-pointer transition-all ${isOpen ? 'bg-white/50 rounded-r-xl' : ''}`}
-               onClick={() => setIsOpen(!isOpen)}
-             >
+             <div className={`flex-1 ${style.color} border-l-[3px] pl-5 pb-2 cursor-pointer transition-all ${isOpen ? 'bg-white/50 rounded-r-xl' : ''}`} onClick={() => setIsOpen(!isOpen)}>
                <div className="flex justify-between items-start mb-1">
-                 <div className={`text-[10px] tracking-[0.2em] font-bold uppercase ${style.text} flex items-center font-sans-eng`}>
-                    <i data-lucide={style.icon} className="w-3 h-3 mr-1.5"></i> {style.label}
-                 </div>
-                 <div className="flex items-center space-x-2">
-                    {item.cashAlert && <span className="text-[10px] font-bold text-red-500 border border-red-200 px-1.5 py-0.5 rounded">¥{item.cashAlert.toLocaleString()}</span>}
-                    {isEditMode && <button onClick={(e) => { e.stopPropagation(); handleDeleteItem(dayIdx, itemIdx); }} className="text-gray-300 hover:text-red-400"><i data-lucide="trash-2" className="w-3 h-3"></i></button>}
-                 </div>
+                 <div className={`text-[10px] tracking-[0.2em] font-bold uppercase ${style.text} flex items-center font-sans-eng`}><i data-lucide={style.icon} className="w-3 h-3 mr-1.5"></i> {style.label}</div>
+                 <div className="flex items-center space-x-2">{item.cashAlert && <span className="text-[10px] font-bold text-red-500 border border-red-200 px-1.5 py-0.5 rounded">¥{item.cashAlert.toLocaleString()}</span>}{isEditMode && <button onClick={(e) => { e.stopPropagation(); handleDeleteItem(dayIdx, itemIdx); }} className="text-gray-300 hover:text-red-400"><i data-lucide="trash-2" className="w-3 h-3"></i></button>}</div>
                </div>
-
-               <h3 className="text-lg font-serif font-bold text-[#2C2C2C] leading-snug mb-1">
-                 {item.title} <EditBtn path={`${basePath}.title`} originalValue={item.title} label="標題"/>
-               </h3>
-
-               <p className="text-sm text-gray-500 font-light leading-relaxed line-clamp-2">
-                 {item.desc} <EditBtn path={`${basePath}.desc`} originalValue={item.desc} label="描述"/>
-               </p>
-
+               <h3 className="text-lg font-serif font-bold text-[#2C2C2C] leading-snug mb-1">{item.title} <EditBtn path={`${basePath}.title`} originalValue={item.title} label="標題"/></h3>
+               <p className="text-sm text-gray-500 font-light leading-relaxed line-clamp-2">{item.desc} <EditBtn path={`${basePath}.desc`} originalValue={item.desc} label="描述"/></p>
                {isOpen && (
                  <div className="mt-4 pt-4 border-t border-dashed border-gray-200 animate-fade-in">
-                   <button 
-                      onClick={(e) => { e.stopPropagation(); window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.location)}`, '_blank'); }} 
-                      className="flex items-center text-sm font-bold text-[#2C2C2C] hover:opacity-70 mb-3 group-hover:translate-x-1 transition-transform"
-                   >
-                      <i data-lucide="navigation" className="w-4 h-4 mr-2"></i> 
-                      Navigate to: {item.location}
-                      {isEditMode && <button onClick={(e) => { e.stopPropagation(); const val = prompt("修改地點:", item.location); if(val) handleEditField(`${basePath}.location`, val); }} className="ml-2 text-yellow-500"><i data-lucide="pencil" className="w-3 h-3"></i></button>}
-                   </button>
-
-                   {item.guide && (
-                     <div className="bg-white/80 p-4 rounded-lg border border-gray-100 text-sm text-gray-600">
-                       {item.guide.story && <p className="mb-2 leading-relaxed whitespace-pre-line">{item.guide.story.replace(/\|/g, '\n')}</p>}
-                       {item.guide.mustEat && <div className="flex flex-wrap gap-2 mt-2">{item.guide.mustEat.map(f=><span key={f} className="bg-orange-50 text-orange-600 px-2 py-1 text-xs rounded border border-orange-100">🍴 {f}</span>)}</div>}
-                     </div>
-                   )}
+                   <button onClick={(e) => { e.stopPropagation(); window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.location)}`, '_blank'); }} className="flex items-center text-sm font-bold text-[#2C2C2C] hover:opacity-70 mb-3 group-hover:translate-x-1 transition-transform"><i data-lucide="navigation" className="w-4 h-4 mr-2"></i> Navigate to: {item.location} {isEditMode && <button onClick={(e) => { e.stopPropagation(); const val = prompt("修改地點:", item.location); if(val) handleEditField(`${basePath}.location`, val); }} className="ml-2 text-yellow-500"><i data-lucide="pencil" className="w-3 h-3"></i></button>}</button>
+                   {item.guide && (<div className="bg-white/80 p-4 rounded-lg border border-gray-100 text-sm text-gray-600">{item.guide.story && <p className="mb-2 leading-relaxed whitespace-pre-line">{item.guide.story.replace(/\|/g, '\n')}</p>}{item.guide.mustEat && <div className="flex flex-wrap gap-2 mt-2">{item.guide.mustEat.map(f=><span key={f} className="bg-orange-50 text-orange-600 px-2 py-1 text-xs rounded border border-orange-100">🍴 {f}</span>)}</div>}</div>)}
                  </div>
                )}
              </div>
@@ -273,7 +230,6 @@
         const [selectedIndex, setSelectedIndex] = useState(0);
         const currentDay = tripData.schedule[selectedIndex] || tripData.schedule[0];
         const stayItem = currentDay.items.find(item => item.type === 'stay' || (item.tags && item.tags.includes('住宿')));
-
         return (
           <div className="min-h-screen pb-24">
             <div className="fixed top-0 left-0 right-0 z-40 bg-[#FDFAF5]/95 backdrop-blur-sm pt-4 pb-2 border-b border-gray-100/50">
@@ -282,49 +238,16 @@
                    const dayNum = d.date.split('/')[1].split(' ')[0];
                    const dayWeek = d.date.split('(')[1].replace(')', '');
                    const isSelected = i === selectedIndex;
-                   return (
-                     <button key={i} onClick={() => setSelectedIndex(i)} className={`flex flex-col items-center flex-shrink-0 transition-all ${isSelected ? "opacity-100 scale-110" : "opacity-40"}`}>
-                        <span className="text-[10px] uppercase font-sans-eng tracking-widest mb-1">{dayWeek}</span>
-                        <span className={`font-serif text-2xl leading-none ${isSelected ? "font-bold text-[#2C2C2C]" : "text-gray-400"}`}>{dayNum}</span>
-                        {isSelected && <div className="w-1 h-1 bg-red-500 rounded-full mt-1"></div>}
-                     </button>
-                   );
+                   return (<button key={i} onClick={() => setSelectedIndex(i)} className={`flex flex-col items-center flex-shrink-0 transition-all ${isSelected ? "opacity-100 scale-110" : "opacity-40"}`}><span className="text-[10px] uppercase font-sans-eng tracking-widest mb-1">{dayWeek}</span><span className={`font-serif text-2xl leading-none ${isSelected ? "font-bold text-[#2C2C2C]" : "text-gray-400"}`}>{dayNum}</span>{isSelected && <div className="w-1 h-1 bg-red-500 rounded-full mt-1"></div>}</button>);
                  })}
                  {isEditMode && <button onClick={handleAddDate} className="opacity-40 hover:opacity-100"><i data-lucide="plus-circle" className="w-6 h-6"></i></button>}
               </div>
             </div>
-            
             <div className="pt-28 px-5">
               <WeatherWidget city={currentDay.weather.city} />
-
-              {stayItem && (
-                 <div className="mb-10 pl-5 border-l-[3px] border-[#D95D7D] py-1">
-                   <p className="text-[10px] text-gray-400 mb-1 tracking-[0.2em] uppercase font-sans-eng">Accommodation</p>
-                   <h3 className="text-2xl font-serif font-bold text-[#2C2C2C] leading-none">{stayItem.title}</h3>
-                   <div className="flex justify-between items-end mt-1">
-                      <p className="text-xs text-gray-400 font-light">{stayItem.location}</p>
-                      <i data-lucide="arrow-down" className="w-4 h-4 text-gray-300"></i>
-                   </div>
-                 </div>
-              )}
-
-              <div className="space-y-2">
-                {currentDay.items.map((item, idx) => <ScheduleItem key={item.id} item={item} dayIdx={selectedIndex} itemIdx={idx} />)}
-              </div>
-              
-              {isEditMode && (
-                <div className="mt-8 grid grid-cols-4 gap-2">
-                   {['transport', 'food', 'spot', 'stay'].map(type => (
-                      <button key={type} onClick={() => {
-                        const newData = JSON.parse(JSON.stringify(tripData));
-                        newData.schedule[selectedIndex].items.push({ id: Date.now().toString(), time: "00:00", title: "New Item", location: "Location", desc: "Description", type: type, tags: [] });
-                        updateCloud(newData);
-                      }} className={`p-3 rounded-xl border border-dashed flex justify-center ${TYPE_STYLES[type].bg} ${TYPE_STYLES[type].color}`}>
-                        <i data-lucide={TYPE_STYLES[type].icon} className={`w-5 h-5 ${TYPE_STYLES[type].text}`}></i>
-                      </button>
-                   ))}
-                </div>
-              )}
+              {stayItem && (<div className="mb-10 pl-5 border-l-[3px] border-[#D95D7D] py-1"><p className="text-[10px] text-gray-400 mb-1 tracking-[0.2em] uppercase font-sans-eng">Accommodation</p><h3 className="text-2xl font-serif font-bold text-[#2C2C2C] leading-none">{stayItem.title}</h3><div className="flex justify-between items-end mt-1"><p className="text-xs text-gray-400 font-light">{stayItem.location}</p><i data-lucide="arrow-down" className="w-4 h-4 text-gray-300"></i></div></div>)}
+              <div className="space-y-2">{currentDay.items.map((item, idx) => <ScheduleItem key={item.id} item={item} dayIdx={selectedIndex} itemIdx={idx} />)}</div>
+              {isEditMode && (<div className="mt-8 grid grid-cols-4 gap-2">{['transport', 'food', 'spot', 'stay'].map(type => (<button key={type} onClick={() => { const newData = JSON.parse(JSON.stringify(tripData)); newData.schedule[selectedIndex].items.push({ id: Date.now().toString(), time: "00:00", title: "New Item", location: "Location", desc: "Description", type: type, tags: [] }); updateCloud(newData); }} className={`p-3 rounded-xl border border-dashed flex justify-center ${TYPE_STYLES[type].bg} ${TYPE_STYLES[type].color}`}><i data-lucide={TYPE_STYLES[type].icon} className={`w-5 h-5 ${TYPE_STYLES[type].text}`}></i></button>))}</div>)}
             </div>
           </div>
         );
@@ -333,74 +256,25 @@
       const ToolsView = () => (
         <div className="pb-24 px-5 pt-10">
           <h2 className="text-3xl font-serif font-bold mb-8 text-[#2C2C2C]">Travel Tools</h2>
-          
           <div className="bg-[#1A1A1A] text-white p-6 rounded-3xl shadow-2xl mb-8 relative overflow-hidden group">
-             <div className="flex justify-between items-start mb-6 z-10 relative">
-               <div><span className="bg-[#D95D7D] text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider shadow-lg">Must Have</span></div>
-               <div className="bg-white/10 p-2 rounded-full backdrop-blur-md"><i data-lucide="external-link" className="w-5 h-5"></i></div>
-             </div>
-             <div onClick={() => window.open('https://vjw-lp.digital.go.jp/zh-hant/', '_blank')} className="cursor-pointer z-10 relative">
-               <h3 className="text-3xl font-serif mb-2">Visit Japan Web</h3>
-               <p className="text-gray-400 text-xs font-light">入境審查 & 海關申報 (請截圖 QR Code)</p>
-             </div>
+             <div className="flex justify-between items-start mb-6 z-10 relative"><div><span className="bg-[#D95D7D] text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider shadow-lg">Must Have</span></div><div className="bg-white/10 p-2 rounded-full backdrop-blur-md"><i data-lucide="external-link" className="w-5 h-5"></i></div></div>
+             <div onClick={() => window.open('https://vjw-lp.digital.go.jp/zh-hant/', '_blank')} className="cursor-pointer z-10 relative"><h3 className="text-3xl font-serif mb-2">Visit Japan Web</h3><p className="text-gray-400 text-xs font-light">入境審查 & 海關申報 (請截圖 QR Code)</p></div>
              <div className="absolute -bottom-10 -right-10 w-48 h-48 bg-white/5 rounded-full blur-3xl group-hover:bg-white/10 transition-all"></div>
           </div>
 
-          {/* 緊急聯絡人 (完整復刻版) */}
+          {/* 完整緊急聯絡人卡片 */}
           <div className="mb-8">
-            <h3 className="text-[#8B2222] font-bold mb-4 flex items-center text-sm tracking-widest">
-               <i data-lucide="shield-alert" className="w-4 h-4 mr-2"></i> 緊急聯絡 & 支援
-            </h3>
+            <h3 className="text-[#8B2222] font-bold mb-4 flex items-center text-sm tracking-widest"><i data-lucide="shield-alert" className="w-4 h-4 mr-2"></i> 緊急聯絡 & 支援</h3>
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-               {/* 110 & 119 Grid */}
-               <div className="grid grid-cols-2 border-b border-gray-100">
-                  <div className="p-6 text-center border-r border-gray-100">
-                     <span className="text-xs text-red-400 block mb-1 tracking-widest font-bold">警察 (POLICE)</span>
-                     <a href="tel:110" className="text-4xl font-serif text-[#9A2525] font-bold block hover:opacity-70">110</a>
-                  </div>
-                  <div className="p-6 text-center">
-                     <span className="text-xs text-red-400 block mb-1 tracking-widest font-bold">救護 / 火警</span>
-                     <a href="tel:119" className="text-4xl font-serif text-[#9A2525] font-bold block hover:opacity-70">119</a>
-                  </div>
-               </div>
-
-               {/* JNTO 熱線 */}
-               <div className="p-6 flex justify-between items-center border-b border-gray-100">
-                  <div>
-                     <h4 className="font-bold text-gray-800 text-lg leading-tight">訪日外國人<br/>醫療 & 急難熱線</h4>
-                     <p className="text-[10px] text-gray-400 mt-2 uppercase tracking-wide">Japan Visitor Hotline (JNTO)</p>
-                     <a href="tel:050-3816-2787" className="text-xl font-bold text-gray-600 mt-1 block tracking-wider">050-3816-2787</a>
-                     <p className="text-[10px] text-gray-300 mt-1">* 24小時對應 (英/中/韓)</p>
-                  </div>
-                  <a href="tel:050-3816-2787" className="bg-[#2C2C2C] text-white p-4 rounded-full active:scale-90 transition-transform shadow-md">
-                     <i data-lucide="phone" className="w-6 h-6"></i>
-                  </a>
-               </div>
-
-               {/* 駐日代表處 (東京) */}
-               <div className="p-5 bg-gray-50">
-                  <span className="bg-gray-200 text-gray-600 text-[10px] px-2 py-0.5 rounded mb-2 inline-block font-bold">外交部</span>
-                  <span className="text-sm font-bold text-gray-700 ml-2">台北駐日經濟文化代表處 (東京)</span>
-                  <div className="mt-3 space-y-2 pl-1">
-                     <p className="text-sm text-gray-500 flex items-center"><span className="w-24 text-xs opacity-70">上班時間：</span>03-3280-7811</p>
-                     <p className="text-sm text-[#9A2525] font-bold flex items-center"><span className="w-24 text-xs opacity-70 text-red-400">急難救助：</span>080-1009-7179</p>
-                  </div>
-               </div>
+               <div className="grid grid-cols-2 border-b border-gray-100"><div className="p-6 text-center border-r border-gray-100"><span className="text-xs text-red-400 block mb-1 tracking-widest font-bold">警察 (POLICE)</span><a href="tel:110" className="text-4xl font-serif text-[#9A2525] font-bold block hover:opacity-70">110</a></div><div className="p-6 text-center"><span className="text-xs text-red-400 block mb-1 tracking-widest font-bold">救護 / 火警</span><a href="tel:119" className="text-4xl font-serif text-[#9A2525] font-bold block hover:opacity-70">119</a></div></div>
+               <div className="p-6 flex justify-between items-center border-b border-gray-100"><div><h4 className="font-bold text-gray-800 text-lg leading-tight">訪日外國人<br/>醫療 & 急難熱線</h4><p className="text-[10px] text-gray-400 mt-2 uppercase tracking-wide">Japan Visitor Hotline (JNTO)</p><a href="tel:050-3816-2787" className="text-xl font-bold text-gray-600 mt-1 block tracking-wider">050-3816-2787</a><p className="text-[10px] text-gray-300 mt-1">* 24小時對應 (英/中/韓)</p></div><a href="tel:050-3816-2787" className="bg-[#2C2C2C] text-white p-4 rounded-full active:scale-90 transition-transform shadow-md"><i data-lucide="phone" className="w-6 h-6"></i></a></div>
+               <div className="p-5 bg-gray-50"><span className="bg-gray-200 text-gray-600 text-[10px] px-2 py-0.5 rounded mb-2 inline-block font-bold">外交部</span><span className="text-sm font-bold text-gray-700 ml-2">台北駐日經濟文化代表處 (東京)</span><div className="mt-3 space-y-2 pl-1"><p className="text-sm text-gray-500 flex items-center"><span className="w-24 text-xs opacity-70">上班時間：</span>03-3280-7811</p><p className="text-sm text-[#9A2525] font-bold flex items-center"><span className="w-24 text-xs opacity-70 text-red-400">急難救助：</span>080-1009-7179</p></div></div>
             </div>
           </div>
             
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-             <h3 className="text-gray-800 font-bold mb-4 flex items-center text-xs tracking-[0.2em] uppercase">My Tickets</h3>
-             {tripData.tools.tickets.map((t, i) => (
-                 <div key={i} className="flex justify-between items-center py-3 border-b border-gray-50 last:border-0">
-                    <a href={t.url} target="_blank" className="flex items-center text-sm font-medium text-gray-600 truncate"><i data-lucide="file-text" className="w-4 h-4 mr-3 text-gray-300"></i>{t.name}</a>
-                    {isEditMode && <button onClick={()=>handleDeleteTicket(i)} className="text-gray-300 hover:text-red-400"><i data-lucide="trash-2" className="w-4 h-4"></i></button>}
-                 </div>
-             ))}
-             <label className="mt-4 flex items-center justify-center w-full py-3 bg-gray-50 hover:bg-gray-100 rounded-xl cursor-pointer text-xs font-bold text-gray-500 transition-all"><i data-lucide="upload" className="w-3 h-3 mr-2"></i> Upload Ticket<input type="file" className="hidden" onChange={handleFileUpload} /></label>
-          </div>
-          
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100"><h3 className="text-gray-800 font-bold mb-4 flex items-center text-xs tracking-[0.2em] uppercase">My Tickets</h3>{tripData.tools.tickets.map((t, i) => (<div key={i} className="flex justify-between items-center py-3 border-b border-gray-50 last:border-0"><a href={t.url} target="_blank" className="flex items-center text-sm font-medium text-gray-600 truncate"><i data-lucide="file-text" className="w-4 h-4 mr-3 text-gray-300"></i>{t.name}</a>{isEditMode && <button onClick={()=>handleDeleteTicket(i)} className="text-gray-300 hover:text-red-400"><i data-lucide="trash-2" className="w-4 h-4"></i></button>}</div>))}<label className="mt-4 flex items-center justify-center w-full py-3 bg-gray-50 hover:bg-gray-100 rounded-xl cursor-pointer text-xs font-bold text-gray-500 transition-all"><i data-lucide="upload" className="w-3 h-3 mr-2"></i> Upload Ticket<input type="file" className="hidden" onChange={handleFileUpload} /></label></div>
           <div className="text-center pb-8 mt-8"><button onClick={() => setIsEditMode(!isEditMode)} className={`text-xs ${isEditMode ? "text-yellow-500 font-bold" : "text-gray-300"}`}>{isEditMode ? "Done Editing" : "Edit Mode"}</button></div>
+          {isEditMode && <div className="mt-4 text-center"><button onClick={handleForceReset} className="text-xs text-red-400 underline">資料庫異常？點此強制重置</button></div>}
         </div>
       );
 
