@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>東北大遷徙 - 智慧導遊</title>
+  <title>東北大遷徙 - 智慧導遊 v17.0</title>
   
   <script src="https://cdn.tailwindcss.com"></script>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
@@ -13,6 +13,9 @@
 
   <script>
     window.onerror = function(msg, url, line, col, error) {
+      // 忽略特定的 React 移除節點錯誤 (這是 React 18 與某些瀏覽器套件的已知衝突，不影響使用)
+      if (msg.includes('NotFoundError') || msg.includes('removeChild')) return true;
+      
       const errorBox = document.getElementById('error-box');
       if (errorBox) {
         errorBox.style.display = 'block';
@@ -32,19 +35,34 @@
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;700&family=Zen+Maru+Gothic:wght@400;500;700&family=Inter:wght@400;600&display=swap');
     
-    body { background-color: #FDFAF5; font-family: 'Zen Maru Gothic', sans-serif; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+    body { 
+      background-color: #FDFAF5; 
+      font-family: 'Zen Maru Gothic', sans-serif; 
+      -webkit-tap-highlight-color: transparent; 
+      touch-action: manipulation; 
+    }
+    
     .font-serif { font-family: 'Noto Serif TC', serif; }
     .font-sans-eng { font-family: 'Inter', sans-serif; }
     .no-scrollbar::-webkit-scrollbar { display: none; }
     .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     html { scroll-behavior: smooth; }
-    .fade-in { animation: fadeIn 0.3s ease-out forwards; will-change: transform, opacity; transform: translate3d(0,0,0); }
+    
+    .fade-in { 
+      animation: fadeIn 0.3s ease-out forwards; 
+      will-change: transform, opacity;
+      transform: translate3d(0,0,0);
+    }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    
     .scale-in { animation: scaleIn 0.2s ease-out forwards; will-change: transform, opacity; }
     @keyframes scaleIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    
     .spin { animation: spin 1s linear infinite; }
     @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-    details > summary { list-style: none; }
+
+    /* v17.0: 修正 details 樣式，確保「危險區域」能正常摺疊 */
+    details > summary { list-style: none; outline: none; }
     details > summary::-webkit-details-marker { display: none; }
   </style>
 </head>
@@ -55,8 +73,9 @@
   <script type="text/babel">
     const { useState, useEffect, useRef, useCallback } = React;
 
-    // v16.0 版本控制：改這個數字會強制更新所有人的手機資料
-    const APP_VERSION = "16.0";
+    // --- v17.0 強制更新版號 ---
+    // 只要此版號變更，App 就會強制使用新的 INITIAL_DATA，確保票券出現
+    const CURRENT_VERSION = "17.0"; 
 
     const firebaseConfig = {
       apiKey: "AIzaSyC2IjvPIILHl3ftIZ8Iw2pBDWoXbE8SKAw",
@@ -90,7 +109,7 @@
       { category: "急病 & 求救 (SOS)", icon: "ambulance", phrases: [ { jp: "具合が悪いです。", romaji: "Guai ga warui desu", zh: "我不舒服", note: "" }, { jp: "救急車を呼んでください！", romaji: "Kyuukyusha o yonde kudasai!", zh: "請叫救護車！", note: "" }, { jp: "薬をください。", romaji: "Kusuri o kudasai", zh: "請給我藥", note: "" } ] }
     ];
 
-    // --- v16.0 內建票券 (詳細資料已填入) ---
+    // --- 必備票券 (Hardcoded) ---
     const BUILT_IN_TICKETS = [
       { 
         name: "🚌 十和田湖接駁 (去程)", 
@@ -107,7 +126,7 @@
     ];
 
     const INITIAL_DATA = {
-      version: APP_VERSION, // 加入版本號
+      version: CURRENT_VERSION,
       schedule: [
         { date: "01/31 (六)", weather: { city: "東京", temp: "-", icon: "cloud-sun" }, items: [ { id: "s0", type: "transport", time: "06:55", title: "起飛：高雄 -> 成田", location: "小港機場", desc: "BR/JL 航班", tags: ["集合"], guide: { tips: ["VJW截圖備用"] } }, { id: "s01", type: "stay", time: "19:00", title: "APA Hotel Ueno", location: "APA Hotel Ueno Ekimae", desc: "全員東京集合", tags: ["住宿"] } ] },
         { date: "02/01 (日)", weather: { city: "東京", temp: "-", icon: "sun" }, items: [ { id: "s1", type: "food", time: "12:00", title: "燒肉 29 Terrace", location: "Yakiniku 29 Terrace", desc: "必吃高評價燒肉", tags: ["已訂位"], guide: { mustEat: ["厚切牛舌"], reservation: { code: "書瑜" } } }, { id: "s1b", type: "spot", time: "20:30", title: "Memento Mori", location: "Toranomon Hills", desc: "世界可可豆靈感酒吧", tags: ["Cacao調酒"], guide: { story: "🍫 概念：以世界各地的可可豆為靈感設計|🧪 特色：這裡不談生死，而是像實驗室一樣萃取可可的風味|🍸 必點：Cacao Pulp Fizz (可可果肉調酒)|📍 位置：虎之門 Hills 3樓，黑色密門", mustEat: ["Cacao Pulp Fizz", "Amazon Cacao"] } } ] },
@@ -123,6 +142,7 @@
       }
     };
 
+    // --- 圖標隔離層 ---
     const LucideIcon = ({ name, className }) => {
       const ref = useRef(null);
       useEffect(() => {
@@ -179,6 +199,7 @@
         fetchWeather();
       }, [city]);
       const getWeatherIcon = (code) => { if (code <= 3) return "sun"; if (code <= 48) return "cloud-fog"; if (code <= 67) return "cloud-rain"; if (code <= 86) return "snowflake"; return "cloud"; };
+      
       if (loading) return <div className="h-24 flex items-center justify-center text-gray-400 text-xs">載入氣象中...</div>;
       return (
         <div className="mb-8 mt-2">
@@ -208,26 +229,14 @@
         return () => clearTimeout(timer);
       }, [activeTab, tripData, openPhraseCategory, activePhrase, activeTicket]);
 
-      // --- v16.0 核心邏輯：強制版本檢查與補票 ---
+      // --- v17.0 核心：版本檢查與強制遷移 ---
       const loadAndMigrate = (data) => {
-        // 如果資料版本舊，或沒有版本號 -> 強制重置為最新版
-        if (!data.version || data.version !== APP_VERSION) {
-          console.log("偵測到舊版本資料，執行自動升級...");
-          return INITIAL_DATA; // 直接回傳包含票券的最新初始資料
+        // 如果版本號不符（代表是舊資料），直接捨棄，使用最新的 INITIAL_DATA
+        if (!data.version || data.version !== CURRENT_VERSION) {
+          console.log("偵測到舊版本資料，執行強制升級...");
+          return INITIAL_DATA; 
         }
-        
-        // 即使版本相同，也檢查有沒有票券，沒有就補進去
-        const newData = JSON.parse(JSON.stringify(data));
-        if (!newData.tools) newData.tools = INITIAL_DATA.tools;
-        if (!newData.tools.tickets) newData.tools.tickets = [];
-        
-        const existingNames = newData.tools.tickets.map(t => t.name);
-        BUILT_IN_TICKETS.forEach(ticket => {
-          if (!existingNames.includes(ticket.name)) {
-            newData.tools.tickets.push(ticket);
-          }
-        });
-        return newData;
+        return data;
       };
 
       useEffect(() => {
@@ -265,24 +274,6 @@
         }
       };
 
-      // --- v16.0: 萬用補票按鈕 ---
-      const handleRestoreDefaultTickets = async () => {
-        if(!confirm("確定要重新載入預設的十和田湖車票嗎？")) return;
-        const newData = JSON.parse(JSON.stringify(tripData));
-        if (!newData.tools.tickets) newData.tools.tickets = [];
-        
-        // 加入預設票券 (避免重複)
-        const existingNames = newData.tools.tickets.map(t => t.name);
-        BUILT_IN_TICKETS.forEach(ticket => {
-          if (!existingNames.includes(ticket.name)) {
-            newData.tools.tickets.push(ticket);
-          }
-        });
-        
-        await updateCloud(newData);
-        alert("✅ 票券已恢復！");
-      };
-
       const speakJapanese = (text) => {
         if (!window.speechSynthesis) { alert("您的手機不支援語音功能"); return; }
         const utterance = new SpeechSynthesisUtterance(text);
@@ -291,7 +282,7 @@
       };
 
       const handleForceReset = async () => { 
-        if(!confirm("⚠️ 警告：重置將清除所有自訂資料。確定？")) return; 
+        if(!confirm("⚠️ 確定要重置？這將清除所有已上傳的圖片。")) return; 
         setLoading(true); 
         localStorage.removeItem('trip_backup');
         if(window.firebaseModules){ try { const {getFirestore,doc,setDoc}=window.firebaseModules; await setDoc(doc(getFirestore(),"trips","main"), INITIAL_DATA); } catch(e){} } 
@@ -315,7 +306,7 @@
           } else if (file.type.startsWith("image/")) {
              fileDataUrl = await compressImage(file);
           } else {
-             throw new Error("格式不支援，請上傳 PDF 或圖片");
+             throw new Error("格式不支援");
           }
 
           const newData = JSON.parse(JSON.stringify(tripData)); 
@@ -435,35 +426,28 @@
                   <LucideIcon name="chevron-right" className="w-4 h-4 text-gray-300" />
                </div>
              ))}
-             
-             {/* 萬一票券沒出來，按這個按鈕！ */}
-             {tripData.tools.tickets.length === 0 && (
-                <button onClick={handleRestoreDefaultTickets} className="w-full py-3 mt-2 bg-purple-50 text-purple-600 rounded-xl font-bold text-xs flex items-center justify-center border border-purple-100">
-                  <LucideIcon name="refresh-cw" className="w-3 h-3 mr-2" /> 載入預設行程票券 (Restore Tickets)
-                </button>
-             )}
-
              <label className="mt-4 flex items-center justify-center w-full py-3 bg-gray-50 hover:bg-gray-100 rounded-xl cursor-pointer text-xs font-bold text-gray-500 transition-all"><LucideIcon name="upload" className="w-3 h-3 mr-2" /> Upload Ticket<input type="file" accept="application/pdf,image/*" className="hidden" onChange={handleFileUpload} /></label>
           </div>
           
+          {/* v17.0 安全性升級：摺疊式危險區域 & 版本浮水印 */}
           <div className="mt-8 border-t border-gray-200 pt-6 pb-20">
             <details className="group">
-              <summary className="list-none text-center text-xs text-gray-300 cursor-pointer hover:text-red-400 transition-colors">
-                 (進階) 重置與除錯
+              <summary className="list-none text-center text-xs text-gray-300 cursor-pointer hover:text-red-400 transition-colors select-none">
+                 (進階) 危險區域：重置與除錯
               </summary>
-              <div className="mt-4 p-4 bg-red-50 rounded-xl border border-red-100 text-center mx-4">
+              <div className="mt-4 p-4 bg-red-50 rounded-xl border border-red-100 text-center mx-4 animate-fade-in">
                  <p className="text-xs text-red-600 font-bold mb-2">⚠️ 危險區域</p>
                  <p className="text-[10px] text-red-400 mb-4">這將刪除所有票券與行程修改紀錄。</p>
                  <button onClick={handleForceReset} className="px-4 py-2 bg-red-500 text-white text-xs font-bold rounded-lg shadow-sm active:scale-95 transition-transform">確認重置 (Force Reset)</button>
               </div>
             </details>
+            <p className="text-[10px] text-center text-gray-200 mt-4 font-mono">v{CURRENT_VERSION}</p>
           </div>
         </div>
       );
 
       const TicketModal = () => {
         if (!activeTicket) return null;
-        
         const isPdf = activeTicket.type === "application/pdf";
         const isVirtual = activeTicket.type === "virtual";
 
